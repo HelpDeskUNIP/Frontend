@@ -1,8 +1,8 @@
-import { 
-  TicketPlus, 
-  LayoutDashboard, 
-  HelpCircle, 
-  FileText, 
+import {
+  TicketPlus,
+  LayoutDashboard,
+  HelpCircle,
+  FileText,
   Settings,
   Users,
   BarChart3,
@@ -64,9 +64,9 @@ export function AppSidebar() {
               {mainItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
-                    <NavLink 
-                      to={item.url} 
-                      end 
+                    <NavLink
+                      to={item.url}
+                      end
                       className={({ isActive }) => `flex items-center gap-3 px-3 py-2 rounded-lg transition-all ${getNavCls({ isActive })}`}
                     >
                       <item.icon className="h-4 w-4 flex-shrink-0" />
@@ -88,9 +88,9 @@ export function AppSidebar() {
               {adminItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild>
-                    <NavLink 
-                      to={item.url} 
-                      end 
+                    <NavLink
+                      to={item.url}
+                      end
                       className={({ isActive }) => `flex items-center gap-3 px-3 py-2 rounded-lg transition-all ${getNavCls({ isActive })}`}
                     >
                       <item.icon className="h-4 w-4 flex-shrink-0" />

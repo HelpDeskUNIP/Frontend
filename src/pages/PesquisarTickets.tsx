@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,64 +9,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Search, Filter, Eye, Edit, CheckCircle } from "lucide-react";
 
-interface Ticket {
-  id: string;
-  titulo: string;
-  descricao: string;
-  status: "Aberto" | "Em Andamento" | "Resolvido" | "Fechado";
-  prioridade: "Crítica" | "Alta" | "Média" | "Baixa";
-  categoria: string;
-  usuario: string;
-  dataCriacao: string;
-  dataAtualizacao: string;
-}
-
-const mockTickets: Ticket[] = [
-  {
-    id: "TK-001",
-    titulo: "Problema no sistema de login",
-    descricao: "Usuários não conseguem fazer login no sistema",
-    status: "Em Andamento",
-    prioridade: "Alta",
-    categoria: "Sistema",
-    usuario: "João Silva",
-    dataCriacao: "2024-01-15",
-    dataAtualizacao: "2024-01-16"
-  },
-  {
-    id: "TK-002",
-    titulo: "Erro no relatório de vendas",
-    descricao: "Relatório não está gerando os dados corretamente",
-    status: "Aberto",
-    prioridade: "Média",
-    categoria: "Relatórios",
-    usuario: "Maria Santos",
-    dataCriacao: "2024-01-14",
-    dataAtualizacao: "2024-01-14"
-  },
-  {
-    id: "TK-003",
-    titulo: "Solicitação de acesso ao módulo financeiro",
-    descricao: "Preciso de acesso para visualizar dados financeiros",
-    status: "Resolvido",
-    prioridade: "Baixa",
-    categoria: "Acesso",
-    usuario: "Carlos Oliveira",
-    dataCriacao: "2024-01-13",
-    dataAtualizacao: "2024-01-15"
-  },
-  {
-    id: "TK-004",
-    titulo: "Sistema fora do ar",
-    descricao: "Aplicação completamente inacessível",
-    status: "Fechado",
-    prioridade: "Crítica",
-    categoria: "Infraestrutura",
-    usuario: "Ana Costa",
-    dataCriacao: "2024-01-10",
-    dataAtualizacao: "2024-01-12"
-  }
-];
+import { useTickets } from "@/hooks/use-tickets";
 
 const statusColors = {
   "Aberto": "bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400",
@@ -84,29 +27,30 @@ const priorityColors = {
 
 export default function PesquisarTickets() {
   const navigate = useNavigate();
+  const { tickets } = useTickets();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("todos");
   const [priorityFilter, setPriorityFilter] = useState<string>("todas");
   const [categoryFilter, setCategoryFilter] = useState<string>("todas");
 
-  const filteredTickets = mockTickets.filter(ticket => {
+  const filteredTickets = useMemo(() => tickets.filter(ticket => {
     const matchesSearch = ticket.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         ticket.descricao.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         ticket.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         ticket.usuario.toLowerCase().includes(searchTerm.toLowerCase());
-    
+      ticket.descricao.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      ticket.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      ticket.usuario.toLowerCase().includes(searchTerm.toLowerCase());
+
     const matchesStatus = statusFilter === "todos" || ticket.status === statusFilter;
     const matchesPriority = priorityFilter === "todas" || ticket.prioridade === priorityFilter;
     const matchesCategory = categoryFilter === "todas" || ticket.categoria === categoryFilter;
 
     return matchesSearch && matchesStatus && matchesPriority && matchesCategory;
-  });
+  }), [tickets, searchTerm, statusFilter, priorityFilter, categoryFilter]);
 
-  const ticketsAtivos = filteredTickets.filter(ticket => 
+  const ticketsAtivos = filteredTickets.filter(ticket =>
     ticket.status === "Aberto" || ticket.status === "Em Andamento"
   );
 
-  const ticketsFinalizados = filteredTickets.filter(ticket => 
+  const ticketsFinalizados = filteredTickets.filter(ticket =>
     ticket.status === "Resolvido" || ticket.status === "Fechado"
   );
 
@@ -261,8 +205,8 @@ export default function PesquisarTickets() {
                       <TableCell>{new Date(ticket.dataCriacao).toLocaleDateString('pt-BR')}</TableCell>
                       <TableCell>
                         <div className="flex gap-2">
-                          <Button 
-                            variant="outline" 
+                          <Button
+                            variant="outline"
                             size="sm"
                             onClick={() => handleEditTicket(ticket.id)}
                           >
@@ -333,8 +277,8 @@ export default function PesquisarTickets() {
                       <TableCell>{new Date(ticket.dataAtualizacao).toLocaleDateString('pt-BR')}</TableCell>
                       <TableCell>
                         <div className="flex gap-2">
-                          <Button 
-                            variant="outline" 
+                          <Button
+                            variant="outline"
                             size="sm"
                             onClick={() => handleViewTicket(ticket.id)}
                           >

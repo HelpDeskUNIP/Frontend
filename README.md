@@ -1,73 +1,38 @@
-# Welcome to your Lovable project
+# Helpdesk App
 
-## Project info
+Aplicação de helpdesk (Vite + React + TypeScript + Tailwind + shadcn/ui).
 
-**URL**: https://lovable.dev/projects/218fa897-d27d-4c83-b135-44b08ee4c16f
-
-## How can I edit this code?
-
-There are several ways of editing your application.
-
-**Use Lovable**
-
-Simply visit the [Lovable Project](https://lovable.dev/projects/218fa897-d27d-4c83-b135-44b08ee4c16f) and start prompting.
-
-Changes made via Lovable will be committed automatically to this repo.
-
-**Use your preferred IDE**
-
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
-
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
-
-Follow these steps:
+## Scripts
 
 ```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+# instalar deps
+npm install
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
-
-# Step 3: Install the necessary dependencies.
-npm i
-
-# Step 4: Start the development server with auto-reloading and an instant preview.
+# dev server (http://localhost:8080 por padrão)
 npm run dev
+
+# lint
+npm run lint
+
+# build de produção
+npm run build
+
+# preview do build local
+npm run preview
 ```
 
-**Edit a file directly in GitHub**
+## Estrutura (resumo)
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+- `src/pages/` — páginas (Dashboard, Tickets, Relatórios, etc.)
+- `src/hooks/` — hooks (ex.: `use-tickets`, `use-local-storage`)
+- `src/components/` — componentes (layout e ui)
+- `public/` — assets estáticos
 
-**Use GitHub Codespaces**
+## Notas
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+- Tickets são persistidos em LocalStorage via `use-tickets`.
+- Tema dark/ligth habilitado; UI com shadcn/ui.
 
-## What technologies are used for this project?
+## Deploy
 
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/218fa897-d27d-4c83-b135-44b08ee4c16f) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+Pode ser publicado em Vercel/Netlify/GitHub Pages. Gere o build com `npm run build` e aponte o host para a pasta `dist/`.

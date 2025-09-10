@@ -7,11 +7,11 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
-import { Lightbulb, Send, User, Building, AlertTriangle, CheckCircle, X, HelpCircle, ArrowLeft, Save } from "lucide-react";
+import { Lightbulb, Send, User, AlertTriangle, CheckCircle, X, HelpCircle, ArrowLeft } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import { useTickets } from "@/hooks/use-tickets";
 
 const categories = [
   { value: "hardware", label: "Hardware", description: "Problemas com equipamentos físicos" },
@@ -20,38 +20,34 @@ const categories = [
   { value: "acessos", label: "Acessos", description: "Problemas de login e permissões" }
 ];
 
-const tiSubcategories = [
-  { value: "ti-hardware", label: "TI - Hardware", description: "Equipamentos de TI (servidores, switches, etc.)" },
-  { value: "ti-software", label: "TI - Software", description: "Sistemas corporativos e aplicações" },
-  { value: "ti-acessos", label: "TI - Acessos", description: "Permissões e controle de acesso" }
-];
+// Removido: subcategorias de Setor TI
 
 const priorities = [
-  { 
-    value: "critica", 
-    label: "Crítica", 
-    description: "Sistema parado, produção afetada", 
+  {
+    value: "critica",
+    label: "Crítica",
+    description: "Sistema parado, produção afetada",
     color: "bg-red-500",
     bgColor: "bg-red-50 border border-red-200 text-red-800"
   },
-  { 
-    value: "alta", 
-    label: "Alta", 
-    description: "Funcionalidade importante não funciona", 
+  {
+    value: "alta",
+    label: "Alta",
+    description: "Funcionalidade importante não funciona",
     color: "bg-orange-500",
     bgColor: "bg-orange-50 border border-orange-200 text-orange-800"
   },
-  { 
-    value: "media", 
-    label: "Média", 
-    description: "Problema que pode esperar algumas horas", 
+  {
+    value: "media",
+    label: "Média",
+    description: "Problema que pode esperar algumas horas",
     color: "bg-yellow-500",
     bgColor: "bg-yellow-50 border border-yellow-200 text-yellow-800"
   },
-  { 
-    value: "baixa", 
-    label: "Baixa", 
-    description: "Melhoria ou problema menor", 
+  {
+    value: "baixa",
+    label: "Baixa",
+    description: "Melhoria ou problema menor",
     color: "bg-green-500",
     bgColor: "bg-green-50 border border-green-200 text-green-800"
   }
@@ -59,9 +55,19 @@ const priorities = [
 
 const mockSuggestions = [
   "Verifique se o cabo de alimentação está conectado corretamente",
-  "Reinicie o equipamento e tente novamente", 
+  "Reinicie o equipamento e tente novamente",
   "Verifique se há atualizações pendentes do sistema",
   "Confirme se o usuário possui as permissões necessárias"
+];
+
+// Setores disponíveis no sistema
+const departments = [
+  { value: "TI", label: "TI" },
+  { value: "Financeiro", label: "Financeiro" },
+  { value: "RH", label: "RH" },
+  { value: "Operações", label: "Operações" },
+  { value: "Marketing", label: "Marketing" },
+  { value: "Vendas", label: "Vendas" },
 ];
 
 export default function NovoTicket() {
@@ -70,14 +76,14 @@ export default function NovoTicket() {
   const [loading, setLoading] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [progress, setProgress] = useState(0);
-  
+
   const [formData, setFormData] = useState({
     title: "",
     category: "",
     priority: "",
     description: "",
-    user: "Admin User", 
-    department: "Tecnologia da Informação",
+    user: "Admin User",
+    department: "", // required; start empty
     email: "",
     phone: ""
   });
@@ -101,7 +107,7 @@ export default function NovoTicket() {
 
   // Calculate form completion progress
   useEffect(() => {
-    const requiredFields = ['title', 'description', 'category', 'priority'];
+    const requiredFields = ['title', 'description', 'category', 'priority', 'department'];
     const completedFields = requiredFields.filter(field => formData[field as keyof typeof formData]);
     setProgress((completedFields.length / requiredFields.length) * 100);
   }, [formData]);
@@ -130,6 +136,10 @@ export default function NovoTicket() {
       newErrors.priority = "Prioridade é obrigatória";
     }
 
+    if (!formData.department) {
+      newErrors.department = "Setor é obrigatório";
+    }
+
     if (formData.email && !/\S+@\S+\.\S+/.test(formData.email)) {
       newErrors.email = "E-mail inválido";
     }
@@ -140,7 +150,7 @@ export default function NovoTicket() {
 
   const handleDescriptionChange = (value: string) => {
     setFormData({ ...formData, description: value });
-    
+
     // Simulate AI suggestions based on description
     if (value.length > 20) {
       setSuggestions(mockSuggestions);
@@ -157,9 +167,11 @@ export default function NovoTicket() {
     return `HD-${year}-${number.toString().padStart(4, '0')}`;
   };
 
+  const { addTicket } = useTickets();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!validateForm()) {
       toast({
         title: "Formulário incompleto",
@@ -170,16 +182,56 @@ export default function NovoTicket() {
     }
 
     setLoading(true);
-    
+
     try {
       // Simular envio do ticket
       await new Promise(resolve => setTimeout(resolve, 2000));
-      
+
       const protocol = generateProtocol();
-      
+
+      // Map category/priority to display labels
+      const findCategoryLabel = (value: string) => {
+        return categories.find(c => c.value === value)?.label ?? value;
+      };
+      const priorityLabelMap: Record<string, "Crítica" | "Alta" | "Média" | "Baixa"> = {
+        critica: "Crítica",
+        alta: "Alta",
+        media: "Média",
+        baixa: "Baixa",
+      };
+
+      // Persist ticket to shared store
+      const created = addTicket({
+        id: protocol,
+        titulo: formData.title,
+        descricao: formData.description,
+        categoria: findCategoryLabel(formData.category),
+        prioridade: priorityLabelMap[formData.priority],
+        usuario: formData.user,
+        departamento: formData.department,
+      });
+
+      // Extra safety: also merge into localStorage in case environment drops state updates
+      try {
+        const key = "tickets";
+        const raw = localStorage.getItem(key);
+        const parsed: unknown = raw ? JSON.parse(raw) : [];
+        const isHasId = (obj: unknown): obj is { id: string } =>
+          typeof obj === "object" && obj !== null &&
+          "id" in (obj as Record<string, unknown>) &&
+          typeof (obj as Record<string, unknown>).id === "string";
+        const list = Array.isArray(parsed) ? parsed.filter(isHasId) : [];
+        const exists = list.some((t) => t.id === created.id);
+        const next = exists ? list : [created, ...list];
+        localStorage.setItem(key, JSON.stringify(next));
+      } catch {
+        // ignore localStorage merge errors
+        void 0;
+      }
+
       // Clear draft on successful submission
       localStorage.removeItem('ticket-draft');
-      
+
       toast({
         title: "Ticket criado com sucesso!",
         description: `Protocolo: ${protocol}. Você receberá atualizações por email.`,
@@ -193,13 +245,13 @@ export default function NovoTicket() {
         priority: "",
         description: "",
         user: "Admin User",
-        department: "Tecnologia da Informação",
+        department: "",
         email: "",
         phone: ""
       });
       setShowSuggestions(false);
       setErrors({});
-      
+
       navigate("/meus-tickets");
     } catch (error) {
       toast({
@@ -220,7 +272,7 @@ export default function NovoTicket() {
       priority: "",
       description: "",
       user: "Admin User",
-      department: "Tecnologia da Informação",
+      department: "",
       email: "",
       phone: ""
     });
@@ -237,7 +289,16 @@ export default function NovoTicket() {
   return (
     <TooltipProvider>
       <div className="max-w-6xl mx-auto space-y-4 md:space-y-6">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        {/* Page Heading centered at the very top */}
+        <div className="text-center">
+          <h1 className="text-2xl md:text-3xl font-bold text-primary mb-2">Abrir Novo Ticket</h1>
+          <p className="text-sm md:text-base text-muted-foreground">
+            Descreva o problema que você está enfrentando e nossa equipe irá ajudá-lo
+          </p>
+        </div>
+
+        {/* Back action below heading */}
+        <div className="flex justify-start">
           <Button
             variant="outline"
             onClick={() => navigate(-1)}
@@ -246,13 +307,6 @@ export default function NovoTicket() {
             <ArrowLeft className="h-4 w-4" />
             Voltar
           </Button>
-          
-          <div className="text-center sm:text-left">
-            <h1 className="text-2xl md:text-3xl font-bold text-primary mb-2">Abrir Novo Ticket</h1>
-            <p className="text-sm md:text-base text-muted-foreground">
-              Descreva o problema que você está enfrentando e nossa equipe irá ajudá-lo
-            </p>
-          </div>
         </div>
 
         {/* Progress indicator - Heurística 1: Visibilidade do status do sistema */}
@@ -274,7 +328,7 @@ export default function NovoTicket() {
           <Alert>
             <AlertTriangle className="h-4 w-4" />
             <AlertDescription className="flex items-center justify-between">
-              <span>Rascunho salvo automaticamente encontrado.</span>
+              <span>Rascunho salvo automaticamente.</span>
               <Button variant="outline" size="sm" onClick={clearDraft}>
                 <X className="h-4 w-4 mr-1" />
                 Limpar
@@ -305,7 +359,7 @@ export default function NovoTicket() {
               </CardHeader>
               <CardContent className="space-y-4 md:space-y-6">
                 <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-end">
                     <div className="space-y-2">
                       <Label htmlFor="user">Usuário</Label>
                       <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
@@ -314,11 +368,35 @@ export default function NovoTicket() {
                       </div>
                     </div>
                     <div className="space-y-2">
-                      <Label htmlFor="department">Setor</Label>
-                      <div className="flex items-center gap-2 p-3 bg-muted rounded-lg">
-                        <Building className="h-4 w-4 text-muted-foreground" />
-                        <span className="font-medium">{formData.department}</span>
-                      </div>
+                      <Label htmlFor="department" className="text-sm font-medium flex items-center gap-1">
+                        Setor *
+                        <Tooltip>
+                          <TooltipTrigger>
+                            <HelpCircle className="h-3 w-3 text-muted-foreground" />
+                          </TooltipTrigger>
+                          <TooltipContent>
+                            <p>Selecione o setor relacionado ao chamado</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </Label>
+                      <Select
+                        value={formData.department}
+                        onValueChange={(value) => setFormData({ ...formData, department: value })}
+                      >
+                        <SelectTrigger id="department" className={`text-sm ${errors.department ? 'border-destructive' : ''}`}>
+                          <SelectValue placeholder="Selecione o setor" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {departments.map((dept) => (
+                            <SelectItem key={dept.value} value={dept.value}>
+                              <span className="font-medium text-sm">{dept.label}</span>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                      {errors.department && (
+                        <p className="text-sm text-destructive">{errors.department}</p>
+                      )}
                     </div>
                   </div>
 
@@ -349,7 +427,7 @@ export default function NovoTicket() {
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium flex items-center gap-1">
+                      <Label htmlFor="category" className="text-sm font-medium flex items-center gap-1">
                         Categoria *
                         <Tooltip>
                           <TooltipTrigger>
@@ -360,33 +438,23 @@ export default function NovoTicket() {
                           </TooltipContent>
                         </Tooltip>
                       </Label>
-                      <Select 
-                        value={formData.category} 
+                      <Select
+                        value={formData.category}
                         onValueChange={(value) => setFormData({ ...formData, category: value })}
                       >
-                        <SelectTrigger className={`text-sm ${errors.category ? 'border-destructive' : ''}`}>
+                        <SelectTrigger id="category" className={`text-sm ${errors.category ? 'border-destructive' : ''}`}>
                           <SelectValue placeholder="Selecione a categoria" />
                         </SelectTrigger>
-                         <SelectContent>
-                           {categories.map((category) => (
-                             <SelectItem key={category.value} value={category.value}>
-                               <div>
-                                 <div className="font-medium text-sm">{category.label}</div>
-                                 <div className="text-xs text-muted-foreground">{category.description}</div>
-                               </div>
-                             </SelectItem>
-                           ))}
-                           <div className="h-px bg-border my-2"></div>
-                           <div className="px-2 pb-1 text-xs font-medium text-muted-foreground">Setor TI</div>
-                           {tiSubcategories.map((category) => (
-                             <SelectItem key={category.value} value={category.value}>
-                               <div>
-                                 <div className="font-medium text-sm">{category.label}</div>
-                                 <div className="text-xs text-muted-foreground">{category.description}</div>
-                               </div>
-                             </SelectItem>
-                           ))}
-                         </SelectContent>
+                        <SelectContent>
+                          {categories.map((category) => (
+                            <SelectItem key={category.value} value={category.value}>
+                              <div>
+                                <div className="font-medium text-sm">{category.label}</div>
+                                <div className="text-xs text-muted-foreground">{category.description}</div>
+                              </div>
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
                       </Select>
                       {errors.category && (
                         <p className="text-sm text-destructive">{errors.category}</p>
@@ -394,7 +462,7 @@ export default function NovoTicket() {
                     </div>
 
                     <div className="space-y-2">
-                      <Label className="text-sm font-medium flex items-center gap-1">
+                      <Label htmlFor="priority" className="text-sm font-medium flex items-center gap-1">
                         Prioridade *
                         <Tooltip>
                           <TooltipTrigger>
@@ -410,11 +478,11 @@ export default function NovoTicket() {
                           </TooltipContent>
                         </Tooltip>
                       </Label>
-                      <Select 
-                        value={formData.priority} 
+                      <Select
+                        value={formData.priority}
                         onValueChange={(value) => setFormData({ ...formData, priority: value })}
                       >
-                        <SelectTrigger className={`text-sm ${errors.priority ? 'border-destructive' : ''}`}>
+                        <SelectTrigger id="priority" className={`text-sm ${errors.priority ? 'border-destructive' : ''}`}>
                           <SelectValue placeholder="Selecione a prioridade" />
                         </SelectTrigger>
                         <SelectContent>
@@ -554,7 +622,7 @@ export default function NovoTicket() {
                 <CardContent>
                   <div className="space-y-3">
                     {suggestions.map((suggestion, index) => (
-                      <div 
+                      <div
                         key={index}
                         className="p-3 bg-muted/50 rounded-lg border-l-4 border-primary text-sm"
                       >

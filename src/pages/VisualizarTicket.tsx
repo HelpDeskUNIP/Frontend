@@ -176,8 +176,9 @@ export default function VisualizarTicket() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label>Título</Label>
+                <Label htmlFor="titulo">Título</Label>
                 <Input
+                  id="titulo"
                   value={ticket.titulo}
                   readOnly
                   className="bg-muted cursor-not-allowed"
@@ -185,8 +186,9 @@ export default function VisualizarTicket() {
               </div>
 
               <div className="space-y-2">
-                <Label>Descrição</Label>
+                <Label htmlFor="descricao">Descrição</Label>
                 <Textarea
+                  id="descricao"
                   value={ticket.descricao}
                   readOnly
                   rows={4}
@@ -196,8 +198,9 @@ export default function VisualizarTicket() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Categoria</Label>
+                  <Label htmlFor="categoria">Categoria</Label>
                   <Input
+                    id="categoria"
                     value={ticket.categoria}
                     readOnly
                     className="bg-muted cursor-not-allowed"
@@ -205,8 +208,8 @@ export default function VisualizarTicket() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Prioridade</Label>
-                  <div className="flex items-center h-10 px-3 border rounded-md bg-muted">
+                  <Label id="prioridade-label">Prioridade</Label>
+                  <div className="flex items-center h-10 px-3 border rounded-md bg-muted" aria-labelledby="prioridade-label">
                     <Badge variant="secondary" className={priorityColors[ticket.prioridade]}>
                       {ticket.prioridade}
                     </Badge>
@@ -216,8 +219,9 @@ export default function VisualizarTicket() {
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Data de Criação</Label>
+                  <Label htmlFor="dataCriacao">Data de Criação</Label>
                   <Input
+                    id="dataCriacao"
                     value={new Date(ticket.dataCriacao).toLocaleDateString('pt-BR')}
                     readOnly
                     className="bg-muted cursor-not-allowed"
@@ -225,8 +229,9 @@ export default function VisualizarTicket() {
                 </div>
 
                 <div className="space-y-2">
-                  <Label>Última Atualização</Label>
+                  <Label htmlFor="dataAtualizacao">Última Atualização</Label>
                   <Input
+                    id="dataAtualizacao"
                     value={new Date(ticket.dataAtualizacao).toLocaleDateString('pt-BR')}
                     readOnly
                     className="bg-muted cursor-not-allowed"
@@ -281,8 +286,8 @@ export default function VisualizarTicket() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label>Status Atual</Label>
-                <div className="flex items-center h-10 px-3 border rounded-md bg-muted">
+                <Label id="status-label">Status Atual</Label>
+                <div className="flex items-center h-10 px-3 border rounded-md bg-muted" aria-labelledby="status-label">
                   <Badge variant="secondary" className={statusColors[ticket.status]}>
                     {ticket.status}
                   </Badge>
@@ -290,8 +295,8 @@ export default function VisualizarTicket() {
               </div>
 
               <div className="space-y-2">
-                <Label>Prioridade</Label>
-                <div className="flex items-center h-10 px-3 border rounded-md bg-muted">
+                <Label id="prioridade-side-label">Prioridade</Label>
+                <div className="flex items-center h-10 px-3 border rounded-md bg-muted" aria-labelledby="prioridade-side-label">
                   <Badge variant="secondary" className={priorityColors[ticket.prioridade]}>
                     {ticket.prioridade}
                   </Badge>
@@ -309,8 +314,9 @@ export default function VisualizarTicket() {
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
-                <Label>Usuário</Label>
+                <Label htmlFor="usuario">Usuário</Label>
                 <Input
+                  id="usuario"
                   value={ticket.usuario}
                   readOnly
                   className="bg-muted cursor-not-allowed"
@@ -318,8 +324,9 @@ export default function VisualizarTicket() {
               </div>
 
               <div className="space-y-2">
-                <Label>ID do Chamado</Label>
+                <Label htmlFor="idChamado">ID do Chamado</Label>
                 <Input
+                  id="idChamado"
                   value={ticket.id}
                   readOnly
                   className="bg-muted cursor-not-allowed"

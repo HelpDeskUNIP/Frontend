@@ -6,9 +6,9 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
-import { 
-  Download, 
-  FileText, 
+import {
+  Download,
+  FileText,
   Calendar,
   TrendingUp,
   Users,
@@ -20,6 +20,7 @@ import {
   User,
   Timer
 } from "lucide-react";
+import { useTickets } from "@/hooks/use-tickets";
 
 // Mock data for reports
 const mockReports = {
@@ -52,26 +53,7 @@ const mockReports = {
   }
 };
 
-type Ticket = {
-  id: string
-  titulo: string
-  solicitante: string
-  setor: string
-  prioridade: "Crítica" | "Alta" | "Média" | "Baixa"
-  status: "Aberto" | "Em Andamento" | "Pendente" | "Resolvido" | "Fechado"
-  dataAbertura: string
-  slaVencimento: string
-}
-
-// Mock data for all tickets
-const mockTickets: Ticket[] = [
-  { id: "TK-001", titulo: "Sistema lento", solicitante: "João Silva", setor: "TI", prioridade: "Alta", status: "Aberto", dataAbertura: "2024-01-15", slaVencimento: "2024-01-16T14:00:00" },
-  { id: "TK-002", titulo: "Erro no login", solicitante: "Maria Santos", setor: "Financeiro", prioridade: "Crítica", status: "Em Andamento", dataAbertura: "2024-01-15", slaVencimento: "2024-01-15T16:00:00" },
-  { id: "TK-003", titulo: "Impressora offline", solicitante: "Pedro Costa", setor: "RH", prioridade: "Média", status: "Pendente", dataAbertura: "2024-01-14", slaVencimento: "2024-01-17T10:00:00" },
-  { id: "TK-004", titulo: "Backup falhou", solicitante: "Ana Oliveira", setor: "TI", prioridade: "Alta", status: "Resolvido", dataAbertura: "2024-01-13", slaVencimento: "2024-01-14T12:00:00" },
-  { id: "TK-005", titulo: "Email não funciona", solicitante: "Carlos Lima", setor: "Operações", prioridade: "Média", status: "Aberto", dataAbertura: "2024-01-15", slaVencimento: "2024-01-18T09:00:00" },
-  { id: "TK-006", titulo: "Software travando", solicitante: "Lucia Ferreira", setor: "Financeiro", prioridade: "Baixa", status: "Fechado", dataAbertura: "2024-01-12", slaVencimento: "2024-01-19T15:00:00" },
-];
+// Tickets agora vêm do store (useTickets)
 
 // SLA Rules based on priority and department
 const slaRules = {
@@ -99,20 +81,21 @@ export default function Relatorios() {
   const [selectedPeriod, setSelectedPeriod] = useLocalStorage("relatorios:selectedPeriod", "mensal");
   const [selectedDepartment, setSelectedDepartment] = useLocalStorage("relatorios:selectedDepartment", "todos");
   const [activeTab, setActiveTab] = useLocalStorage("relatorios:activeTab", "relatorios");
+  const { tickets } = useTickets();
 
   // Filter reports based on selected period and department
   const getFilteredReport = () => {
     const baseReport = mockReports[selectedPeriod as keyof typeof mockReports];
-    
+
     if (selectedDepartment === "todos") {
       return baseReport;
     }
-    
+
     // Filter by department
     const deptKey = selectedDepartment.charAt(0).toUpperCase() + selectedDepartment.slice(1);
     const filteredDepartments = { [deptKey]: baseReport.departments[deptKey] || 0 };
     const totalFiltered = Object.values(filteredDepartments).reduce((acc, val) => acc + val, 0);
-    
+
     return {
       ...baseReport,
       totalTickets: totalFiltered,
@@ -125,18 +108,26 @@ export default function Relatorios() {
   const report = getFilteredReport();
 
   // Filter tickets based on department
-  const getFilteredTickets = (): Ticket[] => {
-    if (selectedDepartment === "todos") return mockTickets;
-    const deptName = selectedDepartment.charAt(0).toUpperCase() + selectedDepartment.slice(1);
-    return mockTickets.filter(ticket => ticket.setor === deptName);
+  const getFilteredTickets = () => {
+    if (selectedDepartment === "todos") return tickets;
+    const map: Record<string, string> = { ti: "TI", financeiro: "Financeiro", rh: "RH", operacoes: "Operações" };
+    const deptName = map[selectedDepartment as keyof typeof map];
+    return tickets.filter(ticket => ticket.departamento === deptName);
   };
 
   // Calculate SLA status
-  const getSlaStatus = (ticket: Ticket) => {
+  const getSlaStatus = (ticket: { slaVencimento?: string }) => {
     const now = new Date();
+    if (!ticket.slaVencimento) {
+      return {
+        status: "Normal",
+        color: "text-[hsl(var(--low))]",
+        bgColor: "bg-card",
+      };
+    }
     const slaDeadline = new Date(ticket.slaVencimento);
     const hoursUntilSla = (slaDeadline.getTime() - now.getTime()) / (1000 * 60 * 60);
-    
+
     if (hoursUntilSla < 0) {
       return {
         status: "Vencido",
@@ -169,7 +160,7 @@ export default function Relatorios() {
   const getNextTickets = () => {
     return getFilteredTickets()
       .filter(ticket => ticket.status !== "Resolvido" && ticket.status !== "Fechado")
-      .sort((a, b) => new Date(a.slaVencimento).getTime() - new Date(b.slaVencimento).getTime())
+      .sort((a, b) => new Date(a.slaVencimento ?? 0).getTime() - new Date(b.slaVencimento ?? 0).getTime())
       .slice(0, 5);
   };
 
@@ -186,7 +177,7 @@ export default function Relatorios() {
             Análise detalhada dos tickets e gestão de atendimentos
           </p>
         </div>
-        
+
         <div className="flex flex-wrap gap-2">
           <Select value={selectedPeriod} onValueChange={setSelectedPeriod}>
             <SelectTrigger className="w-32">
@@ -198,7 +189,7 @@ export default function Relatorios() {
               <SelectItem value="trimestral">Trimestral</SelectItem>
             </SelectContent>
           </Select>
-          
+
           <Select value={selectedDepartment} onValueChange={setSelectedDepartment}>
             <SelectTrigger className="w-40">
               <SelectValue />
@@ -211,7 +202,7 @@ export default function Relatorios() {
               <SelectItem value="operacoes">Operações</SelectItem>
             </SelectContent>
           </Select>
-          
+
           <Button onClick={handleExportReport} variant="default">
             <Download className="mr-2 h-4 w-4" />
             Exportar
@@ -228,54 +219,54 @@ export default function Relatorios() {
         <TabsContent value="relatorios" className="space-y-6 mt-6">
           {/* Summary Cards */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-      <Card className="border-border shadow-sm">
+            <Card className="border-border shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-foreground">Total de Tickets</CardTitle>
-        <FileText className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium text-foreground">Total de Tickets</CardTitle>
+                <FileText className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-        <div className="text-2xl font-bold text-foreground">{report.totalTickets}</div>
-        <p className="text-xs text-muted-foreground flex items-center mt-1">
+                <div className="text-2xl font-bold text-foreground">{report.totalTickets}</div>
+                <p className="text-xs text-muted-foreground flex items-center mt-1">
                   <TrendingUp className="inline h-3 w-3 mr-1 text-green-600" />
                   +12% vs período anterior
                 </p>
               </CardContent>
             </Card>
 
-      <Card className="border-border shadow-sm">
+            <Card className="border-border shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-foreground">Resolvidos</CardTitle>
+                <CardTitle className="text-sm font-medium text-foreground">Resolvidos</CardTitle>
                 <CheckCircle className="h-4 w-4 text-green-600" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-green-700">{report.resolved}</div>
-        <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   {Math.round((report.resolved / report.totalTickets) * 100)}% de resolução
                 </p>
               </CardContent>
             </Card>
 
-      <Card className="border-border shadow-sm">
+            <Card className="border-border shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-foreground">Pendentes</CardTitle>
+                <CardTitle className="text-sm font-medium text-foreground">Pendentes</CardTitle>
                 <Clock className="h-4 w-4 text-orange-600" />
               </CardHeader>
               <CardContent>
                 <div className="text-2xl font-bold text-orange-700">{report.pending}</div>
-        <p className="text-xs text-muted-foreground">
+                <p className="text-xs text-muted-foreground">
                   Aguardando atendimento
                 </p>
               </CardContent>
             </Card>
 
-      <Card className="border-border shadow-sm">
+            <Card className="border-border shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-        <CardTitle className="text-sm font-medium text-foreground">Tempo Médio</CardTitle>
-        <BarChart3 className="h-4 w-4 text-muted-foreground" />
+                <CardTitle className="text-sm font-medium text-foreground">Tempo Médio</CardTitle>
+                <BarChart3 className="h-4 w-4 text-muted-foreground" />
               </CardHeader>
               <CardContent>
-        <div className="text-2xl font-bold text-foreground">{report.avgResolutionTime}</div>
-        <p className="text-xs text-muted-foreground">
+                <div className="text-2xl font-bold text-foreground">{report.avgResolutionTime}</div>
+                <p className="text-xs text-muted-foreground">
                   Resolução por ticket
                 </p>
               </CardContent>
@@ -284,10 +275,10 @@ export default function Relatorios() {
 
           {/* Department Analysis */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-      <Card className="border-border shadow-sm">
+            <Card className="border-border shadow-sm">
               <CardHeader>
-        <CardTitle className="text-foreground">Tickets por Setor</CardTitle>
-        <CardDescription className="text-muted-foreground">
+                <CardTitle className="text-foreground">Tickets por Setor</CardTitle>
+                <CardDescription className="text-muted-foreground">
                   Distribuição de tickets por departamento
                 </CardDescription>
               </CardHeader>
@@ -296,13 +287,13 @@ export default function Relatorios() {
                   <div key={dept} className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-3 h-3 rounded-full bg-foreground/30"></div>
-            <span className="font-medium text-foreground">{dept}</span>
+                      <span className="font-medium text-foreground">{dept}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge className={departmentColors[index % departmentColors.length]}>
                         {count} tickets
                       </Badge>
-            <span className="text-sm text-muted-foreground">
+                      <span className="text-sm text-muted-foreground">
                         {Math.round((count / report.totalTickets) * 100)}%
                       </span>
                     </div>
@@ -311,10 +302,10 @@ export default function Relatorios() {
               </CardContent>
             </Card>
 
-      <Card className="border-border shadow-sm">
+            <Card className="border-border shadow-sm">
               <CardHeader>
-        <CardTitle className="text-foreground">Tickets por Prioridade</CardTitle>
-        <CardDescription className="text-muted-foreground">
+                <CardTitle className="text-foreground">Tickets por Prioridade</CardTitle>
+                <CardDescription className="text-muted-foreground">
                   Distribuição por nível de criticidade
                 </CardDescription>
               </CardHeader>
@@ -322,14 +313,14 @@ export default function Relatorios() {
                 {Object.entries(report.priorities).map(([priority, count]) => (
                   <div key={priority} className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-            <AlertCircle className="w-4 h-4 text-muted-foreground" />
-            <span className="font-medium text-foreground">{priority}</span>
+                      <AlertCircle className="w-4 h-4 text-muted-foreground" />
+                      <span className="font-medium text-foreground">{priority}</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge className={priorityColorsSoft[priority as keyof typeof priorityColorsSoft]}>
                         {count} tickets
                       </Badge>
-            <span className="text-sm text-muted-foreground">
+                      <span className="text-sm text-muted-foreground">
                         {Math.round((count / report.totalTickets) * 100)}%
                       </span>
                     </div>
@@ -349,8 +340,8 @@ export default function Relatorios() {
             </CardHeader>
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <Button 
-                  variant="outline" 
+                <Button
+                  variant="outline"
                   className="flex items-center gap-2 h-12 border-border hover:bg-accent"
                   onClick={handleExportReport}
                 >
@@ -360,9 +351,9 @@ export default function Relatorios() {
                     <div className="text-xs text-muted-foreground">Resumo executivo</div>
                   </div>
                 </Button>
-                
-                <Button 
-                  variant="outline" 
+
+                <Button
+                  variant="outline"
                   className="flex items-center gap-2 h-12 border-border hover:bg-accent"
                   onClick={handleExportReport}
                 >
@@ -372,9 +363,9 @@ export default function Relatorios() {
                     <div className="text-xs text-muted-foreground">Dados detalhados</div>
                   </div>
                 </Button>
-                
-                <Button 
-                  variant="outline" 
+
+                <Button
+                  variant="outline"
                   className="flex items-center gap-2 h-12 border-border hover:bg-accent"
                   onClick={handleExportReport}
                 >
@@ -391,13 +382,13 @@ export default function Relatorios() {
 
         <TabsContent value="todos-chamados" className="space-y-6 mt-6">
           {/* Next Tickets Priority */}
-      <Card className="border-border shadow-sm">
+          <Card className="border-border shadow-sm">
             <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-foreground">
+              <CardTitle className="flex items-center gap-2 text-foreground">
                 <Timer className="h-5 w-5" />
                 Próximos Atendimentos (SLA)
               </CardTitle>
-        <CardDescription className="text-muted-foreground">
+              <CardDescription className="text-muted-foreground">
                 Chamados ordenados por prioridade de SLA
               </CardDescription>
             </CardHeader>
@@ -413,8 +404,8 @@ export default function Relatorios() {
                             {ticket.id}
                           </Badge>
                           <div>
-              <p className="font-medium text-foreground">{ticket.titulo}</p>
-              <p className="text-sm text-muted-foreground">{ticket.solicitante} • {ticket.setor}</p>
+                            <p className="font-medium text-foreground">{ticket.titulo}</p>
+                            <p className="text-sm text-muted-foreground">{ticket.usuario} • {ticket.departamento}</p>
                           </div>
                         </div>
                         <div className="flex items-center gap-2">
@@ -439,11 +430,11 @@ export default function Relatorios() {
               const statusTickets = getFilteredTickets().filter(ticket => ticket.status === status);
               const statusColors = {
                 "Aberto": "border-border bg-card",
-                "Em Andamento": "border-border bg-card", 
+                "Em Andamento": "border-border bg-card",
                 "Pendente": "border-border bg-card",
                 "Resolvido": "border-border bg-card"
               };
-              
+
               return (
                 <Card key={status} className={`${statusColors[status as keyof typeof statusColors]} shadow-sm`}>
                   <CardHeader className="pb-3">
@@ -462,7 +453,7 @@ export default function Relatorios() {
                           <div className="text-sm font-medium text-foreground">{ticket.titulo}</div>
                           <div className="text-xs text-muted-foreground flex items-center gap-1">
                             <User className="h-3 w-3" />
-                            {ticket.solicitante}
+                            {ticket.usuario}
                           </div>
                           <div className="flex items-center justify-between mt-1">
                             <Badge className={priorityColorsSoft[ticket.prioridade as keyof typeof priorityColorsSoft]}>
@@ -485,10 +476,10 @@ export default function Relatorios() {
           </div>
 
           {/* All Tickets Table */}
-      <Card className="border-border shadow-sm">
+          <Card className="border-border shadow-sm">
             <CardHeader>
-        <CardTitle className="text-foreground">Todos os Chamados</CardTitle>
-        <CardDescription className="text-muted-foreground">
+              <CardTitle className="text-foreground">Todos os Chamados</CardTitle>
+              <CardDescription className="text-muted-foreground">
                 Lista completa com informações de SLA
               </CardDescription>
             </CardHeader>
@@ -513,8 +504,8 @@ export default function Relatorios() {
                         <TableRow key={ticket.id}>
                           <TableCell className="font-medium">{ticket.id}</TableCell>
                           <TableCell>{ticket.titulo}</TableCell>
-                          <TableCell>{ticket.solicitante}</TableCell>
-                          <TableCell>{ticket.setor}</TableCell>
+                          <TableCell>{ticket.usuario}</TableCell>
+                          <TableCell>{ticket.departamento}</TableCell>
                           <TableCell>
                             <Badge className={priorityColorsSoft[ticket.prioridade as keyof typeof priorityColorsSoft]}>
                               {ticket.prioridade}

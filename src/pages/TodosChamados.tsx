@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -6,12 +6,12 @@ import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { Breadcrumb, BreadcrumbList, BreadcrumbItem, BreadcrumbLink, BreadcrumbSeparator, BreadcrumbPage } from "@/components/ui/breadcrumb";
-import { 
-  Search, 
+import {
+  Search,
   Filter,
   Eye,
   Edit,
-  Ticket,
+  Ticket as TicketIcon,
   Calendar,
   User,
   AlertCircle,
@@ -20,114 +20,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
-interface Ticket {
-  id: string;
-  titulo: string;
-  descricao: string;
-  status: "Aberto" | "Em Andamento" | "Resolvido" | "Fechado";
-  prioridade: "Crítica" | "Alta" | "Média" | "Baixa";
-  categoria: string;
-  subcategoria?: string;
-  usuario: string;
-  departamento: string;
-  dataAbertura: string;
-  dataVencimento: string;
-  dataResolucao?: string;
-  tempoResposta?: string;
-  sla: "Normal" | "Crítico" | "Vencido";
-}
-
-// Mock data com mais tickets
-const mockTickets: Ticket[] = [
-  {
-    id: "TK-2024-001",
-    titulo: "Problema no login do sistema",
-    descricao: "Usuário não consegue acessar o sistema após trocar a senha",
-    status: "Aberto",
-    prioridade: "Alta",
-    categoria: "TI",
-    subcategoria: "Acessos",
-    usuario: "Maria Silva",
-    departamento: "Financeiro",
-    dataAbertura: "2024-01-15 09:30",
-    dataVencimento: "2024-01-15 17:30",
-    sla: "Normal"
-  },
-  {
-    id: "TK-2024-002",
-    titulo: "Computador não liga",
-    descricao: "Equipamento da estação 12 não está funcionando",
-    status: "Em Andamento",
-    prioridade: "Crítica",
-    categoria: "TI",
-    subcategoria: "Hardware",
-    usuario: "João Santos",
-    departamento: "Operações",
-    dataAbertura: "2024-01-15 10:15",
-    dataVencimento: "2024-01-15 14:15",
-    sla: "Crítico"
-  },
-  {
-    id: "TK-2024-003",
-    titulo: "Instalação de software",
-    descricao: "Necessidade de instalar novo software de design",
-    status: "Resolvido",
-    prioridade: "Média",
-    categoria: "TI",
-    subcategoria: "Software",
-    usuario: "Ana Costa",
-    departamento: "Marketing",
-    dataAbertura: "2024-01-14 14:20",
-    dataVencimento: "2024-01-16 14:20",
-    dataResolucao: "2024-01-15 16:45",
-    tempoResposta: "1d 2h 25m",
-    sla: "Normal"
-  },
-  {
-    id: "TK-2024-004",
-    titulo: "Problema na impressora",
-    descricao: "Impressora do 2º andar não está imprimindo",
-    status: "Fechado",
-    prioridade: "Baixa",
-    categoria: "TI",
-    subcategoria: "Hardware",
-    usuario: "Carlos Oliveira",
-    departamento: "RH",
-    dataAbertura: "2024-01-12 11:00",
-    dataVencimento: "2024-01-18 11:00",
-    dataResolucao: "2024-01-13 09:30",
-    tempoResposta: "22h 30m",
-    sla: "Normal"
-  },
-  {
-    id: "TK-2024-005",
-    titulo: "Erro no sistema de vendas",
-    descricao: "Sistema apresenta erro ao processar vendas",
-    status: "Aberto",
-    prioridade: "Crítica",
-    categoria: "TI",
-    subcategoria: "Software",
-    usuario: "Fernanda Lima",
-    departamento: "Vendas",
-    dataAbertura: "2024-01-15 08:00",
-    dataVencimento: "2024-01-15 12:00",
-    sla: "Vencido"
-  },
-  {
-    id: "TK-2024-006",
-    titulo: "Liberação de acesso ao sistema",
-    descricao: "Novo funcionário precisa de acesso aos sistemas",
-    status: "Em Andamento",
-    prioridade: "Média",
-    categoria: "TI",
-    subcategoria: "Acessos",
-    usuario: "Roberto Dias",
-    departamento: "RH",
-    dataAbertura: "2024-01-15 13:45",
-    dataVencimento: "2024-01-17 13:45",
-    sla: "Normal"
-  }
-];
+import { useTickets } from "@/hooks/use-tickets";
 
 const statusColors = {
   "Aberto": "bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300",
@@ -151,23 +44,24 @@ const slaColors = {
 
 export default function TodosChamados() {
   const navigate = useNavigate();
+  const { tickets } = useTickets();
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("todos");
   const [priorityFilter, setPriorityFilter] = useState<string>("todas");
   const [departmentFilter, setDepartmentFilter] = useState<string>("todos");
 
-  const filteredTickets = mockTickets.filter(ticket => {
+  const filteredTickets = useMemo(() => tickets.filter(ticket => {
     const matchesSearch = ticket.titulo.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         ticket.descricao.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         ticket.usuario.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         ticket.id.toLowerCase().includes(searchTerm.toLowerCase());
-    
+      ticket.descricao.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      ticket.usuario.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      ticket.id.toLowerCase().includes(searchTerm.toLowerCase());
+
     const matchesStatus = statusFilter === "todos" || ticket.status === statusFilter;
     const matchesPriority = priorityFilter === "todas" || ticket.prioridade === priorityFilter;
     const matchesDepartment = departmentFilter === "todos" || ticket.departamento === departmentFilter;
 
     return matchesSearch && matchesStatus && matchesPriority && matchesDepartment;
-  });
+  }), [tickets, searchTerm, statusFilter, priorityFilter, departmentFilter]);
 
   const handleViewTicket = (ticketId: string) => {
     navigate(`/visualizar-ticket/${ticketId}`);
@@ -266,7 +160,7 @@ export default function TodosChamados() {
             </Select>
           </div>
           <div className="text-sm text-muted-foreground">
-            Exibindo {filteredTickets.length} de {mockTickets.length} chamados
+            Exibindo {filteredTickets.length} de {tickets.length} chamados
           </div>
         </CardContent>
       </Card>
@@ -275,7 +169,7 @@ export default function TodosChamados() {
       <Card>
         <CardHeader>
           <CardTitle className="flex items-center gap-2">
-            <Ticket className="h-5 w-5" />
+            <TicketIcon className="h-5 w-5" />
             Lista de Chamados
           </CardTitle>
         </CardHeader>
@@ -300,7 +194,7 @@ export default function TodosChamados() {
                   <TableRow>
                     <TableCell colSpan={9} className="text-center py-8">
                       <div className="flex flex-col items-center gap-2 text-muted-foreground">
-                        <Ticket className="h-8 w-8" />
+                        <TicketIcon className="h-8 w-8" />
                         <p>Nenhum chamado encontrado com os filtros aplicados</p>
                       </div>
                     </TableCell>
@@ -314,7 +208,7 @@ export default function TodosChamados() {
                       <TableCell className="max-w-[200px]">
                         <div className="truncate font-medium">{ticket.titulo}</div>
                         <div className="text-sm text-muted-foreground">
-                          {ticket.categoria} - {ticket.subcategoria}
+                          {ticket.categoria} {ticket.subcategoria ? `- ${ticket.subcategoria}` : ""}
                         </div>
                       </TableCell>
                       <TableCell>
@@ -325,38 +219,48 @@ export default function TodosChamados() {
                       </TableCell>
                       <TableCell>{ticket.departamento}</TableCell>
                       <TableCell>
-                        <Badge 
-                          variant="secondary" 
+                        <Badge
+                          variant="secondary"
                           className={statusColors[ticket.status]}
                         >
                           {ticket.status}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge 
-                          variant="secondary" 
+                        <Badge
+                          variant="secondary"
                           className={priorityColors[ticket.prioridade]}
                         >
                           {ticket.prioridade}
                         </Badge>
                       </TableCell>
                       <TableCell>
-                        <Badge 
-                          variant="secondary" 
-                          className={slaColors[ticket.sla]}
-                        >
-                          <div className="flex items-center gap-1">
-                            {ticket.sla === "Normal" && <CheckCircle className="h-3 w-3" />}
-                            {ticket.sla === "Crítico" && <Clock className="h-3 w-3" />}
-                            {ticket.sla === "Vencido" && <AlertCircle className="h-3 w-3" />}
-                            {ticket.sla}
-                          </div>
-                        </Badge>
+                        {(() => {
+                          const now = new Date();
+                          const slaDeadline = ticket.slaVencimento ? new Date(ticket.slaVencimento) : undefined;
+                          const hoursUntil = slaDeadline ? (slaDeadline.getTime() - now.getTime()) / (1000 * 60 * 60) : Infinity;
+                          const state = hoursUntil < 0 ? "Vencido" : hoursUntil < 2 ? "Crítico" : "Normal";
+                          const colors = {
+                            Normal: "bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300",
+                            Crítico: "bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-300",
+                            Vencido: "bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300",
+                          } as const;
+                          return (
+                            <Badge variant="secondary" className={colors[state]}>
+                              <div className="flex items-center gap-1">
+                                {state === "Normal" && <CheckCircle className="h-3 w-3" />}
+                                {state === "Crítico" && <Clock className="h-3 w-3" />}
+                                {state === "Vencido" && <AlertCircle className="h-3 w-3" />}
+                                {state}
+                              </div>
+                            </Badge>
+                          );
+                        })()}
                       </TableCell>
                       <TableCell>
                         <div className="flex items-center gap-1 text-sm">
                           <Calendar className="h-3 w-3 text-muted-foreground" />
-                          {new Date(ticket.dataAbertura).toLocaleDateString('pt-BR')}
+                          {new Date(ticket.dataCriacao).toLocaleDateString('pt-BR')}
                         </div>
                       </TableCell>
                       <TableCell>

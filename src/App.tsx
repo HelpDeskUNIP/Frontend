@@ -29,68 +29,68 @@ const App = () => (
         <Sonner />
         <BrowserRouter>
           <Routes>
-          <Route path="/login" element={<Login />} />
-          <Route path="/" element={
-            <Layout>
-              <Dashboard />
-            </Layout>
-          } />
-          <Route path="/novo-ticket" element={
-            <Layout>
-              <NovoTicket />
-            </Layout>
-          } />
-          <Route path="/meus-tickets" element={
-            <Layout>
-              <PesquisarTickets />
-            </Layout>
-          } />
-          <Route path="/editar-ticket/:id" element={
-            <Layout>
-              <EditarTicket />
-            </Layout>
-          } />
-          <Route path="/visualizar-ticket/:id" element={
-            <Layout>
-              <VisualizarTicket />
-            </Layout>
-          } />
-          <Route path="/faq" element={
-            <Layout>
-              <FAQ />
-            </Layout>
-          } />
-          <Route path="/relatorios" element={
-            <Layout>
-              <Relatorios />
-            </Layout>
-          } />
-          <Route path="/todos-chamados" element={
-            <Layout>
-              <TodosChamados />
-            </Layout>
-          } />
-          <Route path="/usuarios" element={
-            <Layout>
-              <Usuarios />
-            </Layout>
-          } />
-          <Route path="/perfil" element={
-            <Layout>
-              <Perfil />
-            </Layout>
-          } />
-          <Route path="/configuracoes" element={
-            <Layout>
-              <Configuracoes />
-            </Layout>
-          } />
-          {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-          <Route path="*" element={
-            <Layout>
-              <NotFound />
-            </Layout>
-          } />
+            <Route path="/login" element={<Login />} />
+            <Route path="/" element={
+              <Layout>
+                <Dashboard />
+              </Layout>
+            } />
+            <Route path="/novo-ticket" element={
+              <Layout>
+                <NovoTicket />
+              </Layout>
+            } />
+            <Route path="/meus-tickets" element={
+              <Layout>
+                <PesquisarTickets />
+              </Layout>
+            } />
+            <Route path="/editar-ticket/:id" element={
+              <Layout>
+                <EditarTicket />
+              </Layout>
+            } />
+            <Route path="/visualizar-ticket/:id" element={
+              <Layout>
+                <VisualizarTicket />
+              </Layout>
+            } />
+            <Route path="/faq" element={
+              <Layout>
+                <FAQ />
+              </Layout>
+            } />
+            <Route path="/relatorios" element={
+              <Layout>
+                <Relatorios />
+              </Layout>
+            } />
+            <Route path="/todos-chamados" element={
+              <Layout>
+                <TodosChamados />
+              </Layout>
+            } />
+            <Route path="/usuarios" element={
+              <Layout>
+                <Usuarios />
+              </Layout>
+            } />
+            <Route path="/perfil" element={
+              <Layout>
+                <Perfil />
+              </Layout>
+            } />
+            <Route path="/configuracoes" element={
+              <Layout>
+                <Configuracoes />
+              </Layout>
+            } />
+            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+            <Route path="*" element={
+              <Layout>
+                <NotFound />
+              </Layout>
+            } />
           </Routes>
         </BrowserRouter>
       </TooltipProvider>

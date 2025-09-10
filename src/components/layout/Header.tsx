@@ -1,13 +1,13 @@
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
-import { 
-  DropdownMenu, 
-  DropdownMenuContent, 
-  DropdownMenuItem, 
-  DropdownMenuLabel, 
-  DropdownMenuSeparator, 
-  DropdownMenuTrigger 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
@@ -37,47 +37,47 @@ export function Header() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
-  
+
   const [storedNotifications, setStoredNotifications] = useLocalStorage(
     "notifications",
     [
-    {
-      id: 1,
-      title: "Novo ticket criado",
-      message: "Ticket #1234 foi criado por João Silva",
-      time: "2 min atrás",
-      read: false,
-      type: "new",
-      priority: "high"
-    },
-    {
-      id: 2,
-      title: "Ticket atualizado",
-      message: "Status do ticket #1230 alterado para Em Andamento",
-      time: "15 min atrás",
-      read: false,
-      type: "update",
-      priority: "medium"
-    },
-    {
-      id: 3,
-      title: "Ticket crítico aguardando",
-      message: "Ticket #1235 de prioridade crítica aguarda atendimento há 1 hora",
-      time: "1 hora atrás",
-      read: false,
-      type: "critical",
-      priority: "critical"
-    },
-    {
-      id: 4,
-      title: "Ticket finalizado",
-      message: "Ticket #1225 foi finalizado com sucesso",
-      time: "2 horas atrás",
-      read: true,
-      type: "completed",
-      priority: "low"
-    }
-  ]
+      {
+        id: 1,
+        title: "Novo ticket criado",
+        message: "Ticket #1234 foi criado por João Silva",
+        time: "2 min atrás",
+        read: false,
+        type: "new",
+        priority: "high"
+      },
+      {
+        id: 2,
+        title: "Ticket atualizado",
+        message: "Status do ticket #1230 alterado para Em Andamento",
+        time: "15 min atrás",
+        read: false,
+        type: "update",
+        priority: "medium"
+      },
+      {
+        id: 3,
+        title: "Ticket crítico aguardando",
+        message: "Ticket #1235 de prioridade crítica aguarda atendimento há 1 hora",
+        time: "1 hora atrás",
+        read: false,
+        type: "critical",
+        priority: "critical"
+      },
+      {
+        id: 4,
+        title: "Ticket finalizado",
+        message: "Ticket #1225 foi finalizado com sucesso",
+        time: "2 horas atrás",
+        read: true,
+        type: "completed",
+        priority: "low"
+      }
+    ]
   )
   const [notifications, setNotifications] = useState(storedNotifications)
 
@@ -93,18 +93,18 @@ export function Header() {
   const getBreadcrumbs = () => {
     const pathSegments = location.pathname.split('/').filter(Boolean);
     const breadcrumbs = [{ name: 'Dashboard', path: '/' }];
-    
+
     if (pathSegments.length > 0 && location.pathname !== '/') {
       breadcrumbs.push({ name: currentRouteName, path: location.pathname });
     }
-    
+
     return breadcrumbs;
   };
 
   const markAsRead = (id: number) => {
     setNotifications(prev => {
-      const updated = prev.map(notification => 
-        notification.id === id 
+      const updated = prev.map(notification =>
+        notification.id === id
           ? { ...notification, read: true }
           : notification
       )
@@ -125,13 +125,13 @@ export function Header() {
     // Limpar dados de sessão
     localStorage.clear();
     sessionStorage.clear();
-    
+
     // Mostrar mensagem de confirmação
     toast({
       title: "Logout realizado com sucesso",
       description: "Você foi desconectado do sistema com segurança.",
     });
-    
+
     // Redirecionar para a tela de login
     navigate('/login');
   };
@@ -146,7 +146,7 @@ export function Header() {
               <div className="font-semibold text-primary text-sm md:text-base truncate">Sistema HelpDesk</div>
               <div className="text-xs md:text-sm text-muted-foreground hidden sm:block">v1.0</div>
             </div>
-            
+
             {/* Breadcrumb Navigation - Heurística 1: Visibilidade do status do sistema */}
             <Breadcrumb className="hidden lg:flex ml-4">
               <BreadcrumbList>
@@ -157,7 +157,7 @@ export function Header() {
                       {index === getBreadcrumbs().length - 1 ? (
                         <BreadcrumbPage>{crumb.name}</BreadcrumbPage>
                       ) : (
-                        <BreadcrumbLink 
+                        <BreadcrumbLink
                           onClick={() => navigate(crumb.path)}
                           className="cursor-pointer hover:text-primary"
                         >
@@ -193,8 +193,8 @@ export function Header() {
             {/* Help Button - Heurística 10: Ajuda e documentação */}
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button 
-                  variant="ghost" 
+                <Button
+                  variant="ghost"
                   size="icon"
                   onClick={() => navigate('/faq')}
                   className="hidden sm:flex h-8 w-8 md:h-10 md:w-10"
@@ -227,8 +227,8 @@ export function Header() {
                     <Button variant="ghost" size="icon" className="relative h-8 w-8 md:h-10 md:w-10">
                       <Bell className="h-4 w-4" />
                       {unreadCount > 0 && (
-                        <Badge 
-                          variant="destructive" 
+                        <Badge
+                          variant="destructive"
                           className="absolute -top-1 -right-1 h-3 w-3 p-0 text-xs flex items-center justify-center animate-pulse"
                         >
                           {unreadCount}
@@ -245,9 +245,9 @@ export function Header() {
                 <DropdownMenuLabel className="flex items-center justify-between">
                   <span>Notificações</span>
                   {unreadCount > 0 && (
-                    <Button 
-                      variant="ghost" 
-                      size="sm" 
+                    <Button
+                      variant="ghost"
+                      size="sm"
                       className="h-auto p-0 text-xs text-muted-foreground hover:text-foreground"
                       onClick={markAllAsRead}
                     >
@@ -266,11 +266,9 @@ export function Header() {
                     notifications.map((notification) => (
                       <DropdownMenuItem
                         key={notification.id}
-                        className={`flex flex-col items-start p-3 cursor-pointer transition-colors ${
-                          !notification.read ? 'bg-muted/50' : ''
-                        } ${
-                          notification.priority === 'critical' ? 'border-l-2 border-destructive' : ''
-                        }`}
+                        className={`flex flex-col items-start p-3 cursor-pointer transition-colors ${!notification.read ? 'bg-muted/50' : ''
+                          } ${notification.priority === 'critical' ? 'border-l-2 border-destructive' : ''
+                          }`}
                         onClick={() => markAsRead(notification.id)}
                       >
                         <div className="flex items-start gap-3 w-full">
@@ -290,9 +288,8 @@ export function Header() {
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center gap-2">
-                              <p className={`text-sm truncate ${
-                                notification.priority === 'critical' ? 'font-semibold text-destructive' : 'font-medium'
-                              }`}>
+                              <p className={`text-sm truncate ${notification.priority === 'critical' ? 'font-semibold text-destructive' : 'font-medium'
+                                }`}>
                                 {notification.title}
                               </p>
                               {!notification.read && (
@@ -344,14 +341,14 @@ export function Header() {
                   </div>
                 </DropdownMenuLabel>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   onClick={() => navigate('/perfil')}
                   className="cursor-pointer"
                 >
                   <User className="mr-2 h-4 w-4" />
                   <span>Perfil</span>
                 </DropdownMenuItem>
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   onClick={() => navigate('/configuracoes')}
                   className="cursor-pointer"
                 >
@@ -359,7 +356,7 @@ export function Header() {
                   <span>Configurações</span>
                 </DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem 
+                <DropdownMenuItem
                   onClick={handleLogout}
                   className="cursor-pointer text-destructive focus:text-destructive"
                 >
