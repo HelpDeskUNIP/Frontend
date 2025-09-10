@@ -2,9 +2,10 @@ import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
+import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import { Layout } from "./components/layout/Layout";
+import { AuthProvider, useAuth } from "./hooks/use-auth";
 import Dashboard from "./pages/Dashboard";
 import Login from "./pages/Login";
 import NovoTicket from "./pages/NovoTicket";
@@ -21,79 +22,112 @@ import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
+function PrivateRoute({ children }: { children: React.ReactElement }) {
+  const { isAuthenticated, loading } = useAuth();
+  if (loading) return null;
+  return isAuthenticated ? children : <Navigate to="/login" replace />;
+}
+
 const App = () => (
   <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
     <QueryClientProvider client={queryClient}>
-      <TooltipProvider>
-        <Toaster />
-        <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/login" element={<Login />} />
-            <Route path="/" element={
-              <Layout>
-                <Dashboard />
-              </Layout>
-            } />
-            <Route path="/novo-ticket" element={
-              <Layout>
-                <NovoTicket />
-              </Layout>
-            } />
-            <Route path="/meus-tickets" element={
-              <Layout>
-                <PesquisarTickets />
-              </Layout>
-            } />
-            <Route path="/editar-ticket/:id" element={
-              <Layout>
-                <EditarTicket />
-              </Layout>
-            } />
-            <Route path="/visualizar-ticket/:id" element={
-              <Layout>
-                <VisualizarTicket />
-              </Layout>
-            } />
-            <Route path="/faq" element={
-              <Layout>
-                <FAQ />
-              </Layout>
-            } />
-            <Route path="/relatorios" element={
-              <Layout>
-                <Relatorios />
-              </Layout>
-            } />
-            <Route path="/todos-chamados" element={
-              <Layout>
-                <TodosChamados />
-              </Layout>
-            } />
-            <Route path="/usuarios" element={
-              <Layout>
-                <Usuarios />
-              </Layout>
-            } />
-            <Route path="/perfil" element={
-              <Layout>
-                <Perfil />
-              </Layout>
-            } />
-            <Route path="/configuracoes" element={
-              <Layout>
-                <Configuracoes />
-              </Layout>
-            } />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={
-              <Layout>
-                <NotFound />
-              </Layout>
-            } />
-          </Routes>
-        </BrowserRouter>
-      </TooltipProvider>
+      <AuthProvider>
+        <TooltipProvider>
+          <Toaster />
+          <Sonner />
+          <BrowserRouter>
+            <Routes>
+              <Route path="/login" element={<Login />} />
+              <Route path="/" element={<Navigate to="/login" replace />} />
+              <Route path="/dashboard" element={
+                <PrivateRoute>
+                  <Layout>
+                    <Dashboard />
+                  </Layout>
+                </PrivateRoute>
+              } />
+              <Route path="/novo-ticket" element={
+                <PrivateRoute>
+                  <Layout>
+                    <NovoTicket />
+                  </Layout>
+                </PrivateRoute>
+              } />
+              <Route path="/meus-tickets" element={
+                <PrivateRoute>
+                  <Layout>
+                    <PesquisarTickets />
+                  </Layout>
+                </PrivateRoute>
+              } />
+              <Route path="/editar-ticket/:id" element={
+                <PrivateRoute>
+                  <Layout>
+                    <EditarTicket />
+                  </Layout>
+                </PrivateRoute>
+              } />
+              <Route path="/visualizar-ticket/:id" element={
+                <PrivateRoute>
+                  <Layout>
+                    <VisualizarTicket />
+                  </Layout>
+                </PrivateRoute>
+              } />
+              <Route path="/faq" element={
+                <PrivateRoute>
+                  <Layout>
+                    <FAQ />
+                  </Layout>
+                </PrivateRoute>
+              } />
+              <Route path="/relatorios" element={
+                <PrivateRoute>
+                  <Layout>
+                    <Relatorios />
+                  </Layout>
+                </PrivateRoute>
+              } />
+              <Route path="/todos-chamados" element={
+                <PrivateRoute>
+                  <Layout>
+                    <TodosChamados />
+                  </Layout>
+                </PrivateRoute>
+              } />
+              <Route path="/usuarios" element={
+                <PrivateRoute>
+                  <Layout>
+                    <Usuarios />
+                  </Layout>
+                </PrivateRoute>
+              } />
+              <Route path="/perfil" element={
+                <PrivateRoute>
+                  <Layout>
+                    <Perfil />
+                  </Layout>
+                </PrivateRoute>
+              } />
+              <Route path="/configuracoes" element={
+                <PrivateRoute>
+                  <Layout>
+                    <Configuracoes />
+                  </Layout>
+                </PrivateRoute>
+              } />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={
+                <PrivateRoute>
+                  <Layout>
+                    <NotFound />
+                  </Layout>
+                </PrivateRoute>
+              } />
+            </Routes>
+          </BrowserRouter>
+        </TooltipProvider>
+      </AuthProvider>
     </QueryClientProvider>
   </ThemeProvider>
 );

@@ -13,15 +13,15 @@ import { Badge } from "@/components/ui/badge";
 import { Breadcrumb, BreadcrumbItem, BreadcrumbLink, BreadcrumbList, BreadcrumbPage, BreadcrumbSeparator } from "@/components/ui/breadcrumb";
 import { Bell, User, Settings, LogOut, Home, HelpCircle, AlertCircle, Clock, CheckCircle, Moon, Sun } from "lucide-react";
 import { useNavigate, useLocation } from "react-router-dom";
-import { toast } from "sonner";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
 import { useToast } from "@/hooks/use-toast";
 import { useLocalStorage } from "@/hooks/use-local-storage";
+import { useAuth } from "@/hooks/use-auth";
 
 const routeNames: Record<string, string> = {
-  '/': 'Dashboard',
+  '/dashboard': 'Dashboard',
   '/novo-ticket': 'Novo Ticket',
   '/meus-tickets': 'Meus Tickets',
   '/todos-chamados': 'Todos Chamados',
@@ -37,6 +37,7 @@ export function Header() {
   const { toast } = useToast();
   const navigate = useNavigate();
   const location = useLocation();
+  const { user, logout } = useAuth();
 
   const [storedNotifications, setStoredNotifications] = useLocalStorage(
     "notifications",
@@ -92,9 +93,9 @@ export function Header() {
 
   const getBreadcrumbs = () => {
     const pathSegments = location.pathname.split('/').filter(Boolean);
-    const breadcrumbs = [{ name: 'Dashboard', path: '/' }];
+    const breadcrumbs = [{ name: 'Dashboard', path: '/dashboard' }];
 
-    if (pathSegments.length > 0 && location.pathname !== '/') {
+    if (pathSegments.length > 0 && location.pathname !== '/dashboard') {
       breadcrumbs.push({ name: currentRouteName, path: location.pathname });
     }
 
@@ -121,18 +122,20 @@ export function Header() {
     });
   };
 
-  const handleLogout = () => {
-    // Limpar dados de sessão
-    localStorage.clear();
-    sessionStorage.clear();
+  const getInitials = (nameOrEmail?: string) => {
+    if (!nameOrEmail) return "US";
+    if (nameOrEmail.includes("@")) return nameOrEmail.split("@")[0].slice(0, 2).toUpperCase();
+    const parts = nameOrEmail.trim().split(/\s+/);
+    if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+    return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+  };
 
-    // Mostrar mensagem de confirmação
+  const handleLogout = () => {
+    logout();
     toast({
       title: "Logout realizado com sucesso",
       description: "Você foi desconectado do sistema com segurança.",
     });
-
-    // Redirecionar para a tela de login
     navigate('/login');
   };
 
@@ -313,30 +316,24 @@ export function Header() {
 
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button variant="ghost" className="relative h-8 w-8 rounded-full">
-                      <Avatar className="h-8 w-8">
-                        <AvatarFallback className="bg-primary text-primary-foreground">
-                          AD
-                        </AvatarFallback>
-                      </Avatar>
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent>
-                    <p>Menu do usuário</p>
-                  </TooltipContent>
-                </Tooltip>
+                <Button variant="ghost" className="relative h-8 w-8 rounded-full" aria-label="Menu do usuário">
+                  <Avatar className="h-8 w-8">
+                    {/* If you add avatar URL to user later, render <AvatarImage src={user.avatarUrl} alt={user.name} /> */}
+                    <AvatarFallback className="bg-primary text-primary-foreground">
+                      {getInitials(user?.name || user?.email)}
+                    </AvatarFallback>
+                  </Avatar>
+                </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent className="w-56 bg-popover backdrop-blur z-50 border shadow-lg" align="end" forceMount>
                 <DropdownMenuLabel className="font-normal">
                   <div className="flex flex-col space-y-1">
-                    <p className="text-sm font-medium leading-none">Admin User</p>
+                    <p className="text-sm font-medium leading-none">{user?.name || (user?.email?.split("@")[0] ?? "Usuário")}</p>
                     <p className="text-xs leading-none text-muted-foreground">
-                      admin@empresa.com
+                      {user?.email ?? "sem-email"}
                     </p>
                     <Badge variant="secondary" className="w-fit text-xs mt-1">
-                      Administrador
+                      Logado
                     </Badge>
                   </div>
                 </DropdownMenuLabel>

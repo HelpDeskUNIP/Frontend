@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -14,43 +14,13 @@ import {
   Filter
 } from "lucide-react";
 import heroImage from "@/assets/helpdesk-hero.jpg";
+import { useTickets, Ticket } from "@/hooks/use-tickets";
 
-// Mock data for tickets
-const mockTickets = [
-  {
-    id: "HD-2024-001",
-    title: "Impressora não funciona no setor financeiro",
-    category: "Hardware",
-    priority: "Alta",
-    status: "Aberto",
-    user: "Maria Silva",
-    department: "Financeiro",
-    created: "2024-01-15 09:30",
-    description: "A impressora HP LaserJet do setor financeiro parou de funcionar"
-  },
-  {
-    id: "HD-2024-002", 
-    title: "Sistema ERP lento",
-    category: "Software",
-    priority: "Crítica",
-    status: "Em Andamento",
-    user: "João Santos",
-    department: "Operações",
-    created: "2024-01-15 08:15",
-    description: "O sistema ERP está muito lento afetando todo o setor"
-  },
-  {
-    id: "HD-2024-003",
-    title: "Mouse sem fio não conecta",
-    category: "Periféricos", 
-    priority: "Baixa",
-    status: "Resolvido",
-    user: "Ana Costa",
-    department: "RH",
-    created: "2024-01-14 16:20",
-    description: "Mouse sem fio não está conectando ao computador"
-  }
-];
+// Helpers
+const formatDateTime = (iso?: string) => {
+  if (!iso) return "";
+  try { return new Date(iso).toLocaleString(); } catch { return iso; }
+};
 
 const priorityColors = {
   "Crítica": "bg-priority-critical text-white",
@@ -75,14 +45,41 @@ const statusColors = {
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const { tickets } = useTickets();
   const [filterPriority, setFilterPriority] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
 
-  const filteredTickets = mockTickets.filter(ticket => {
-    const priorityMatch = filterPriority === "all" || ticket.priority === filterPriority;
-    const statusMatch = filterStatus === "all" || ticket.status === filterStatus;
-    return priorityMatch && statusMatch;
-  });
+  const sortedTickets = useMemo(() =>
+    [...tickets].sort((a, b) => new Date(b.dataCriacao).getTime() - new Date(a.dataCriacao).getTime())
+  , [tickets]);
+
+  const filteredTickets = useMemo(() => {
+    return sortedTickets.filter((ticket) => {
+      const priorityMatch = filterPriority === "all" || ticket.prioridade === filterPriority;
+      const statusMatch = filterStatus === "all" || ticket.status === filterStatus;
+      return priorityMatch && statusMatch;
+    });
+  }, [sortedTickets, filterPriority, filterStatus]);
+
+  // Metrics
+  const totalTickets = tickets.length;
+  const openTickets = tickets.filter(t => t.status !== "Resolvido" && t.status !== "Fechado");
+  const openCount = openTickets.length;
+  const openCritical = openTickets.filter(t => t.prioridade === "Crítica").length;
+  const openHigh = openTickets.filter(t => t.prioridade === "Alta").length;
+  const resolvedTickets = tickets.filter(t => t.status === "Resolvido");
+  const resolvedCount = resolvedTickets.length;
+  const avgResolutionHours = useMemo(() => {
+    if (resolvedTickets.length === 0) return null;
+    const sumMs = resolvedTickets.reduce((acc, t) => {
+      const start = new Date(t.dataCriacao).getTime();
+      const end = new Date(t.dataAtualizacao).getTime(); // aprox.: última atualização como resolução
+      return acc + Math.max(0, end - start);
+    }, 0);
+    const avgMs = sumMs / resolvedTickets.length;
+    const hours = avgMs / (1000 * 60 * 60);
+    return Math.round(hours * 10) / 10; // 1 casa decimal
+  }, [resolvedTickets]);
 
   return (
     <div className="space-y-4 md:space-y-6">
@@ -114,13 +111,13 @@ export default function Dashboard() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 lg:gap-6">
-        <Card className="shadow-card hover:shadow-card-hover transition-shadow">
+    <Card className="shadow-card hover:shadow-card-hover transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-xs md:text-sm font-medium">Total de Tickets</CardTitle>
             <TicketPlus className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-lg md:text-xl lg:text-2xl font-bold text-primary">127</div>
+      <div className="text-lg md:text-xl lg:text-2xl font-bold text-primary">{totalTickets}</div>
             <p className="text-xs text-muted-foreground hidden sm:block">
               <TrendingUp className="inline h-3 w-3 mr-1" />
               +12% desde semana passada
@@ -134,9 +131,9 @@ export default function Dashboard() {
             <Clock className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-lg md:text-xl lg:text-2xl font-bold text-warning">23</div>
+            <div className="text-lg md:text-xl lg:text-2xl font-bold text-warning">{openCount}</div>
             <p className="text-xs text-muted-foreground hidden sm:block">
-              8 críticos, 15 de alta prioridade
+              {openCritical} críticos, {openHigh} de alta prioridade
             </p>
           </CardContent>
         </Card>
@@ -147,9 +144,9 @@ export default function Dashboard() {
             <CheckCircle className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-lg md:text-xl lg:text-2xl font-bold text-success">104</div>
+            <div className="text-lg md:text-xl lg:text-2xl font-bold text-success">{resolvedCount}</div>
             <p className="text-xs text-muted-foreground hidden sm:block">
-              Tempo médio de resolução: 2.5 horas
+              Tempo médio de resolução: {avgResolutionHours ?? "-"} {avgResolutionHours === 1 ? "hora" : "horas"}
             </p>
           </CardContent>
         </Card>
@@ -241,17 +238,17 @@ export default function Dashboard() {
                       </code>
                     </td>
                     <td className="h-10 md:h-12 px-2 md:px-4 align-middle">
-                      <div className="font-medium text-xs md:text-sm truncate max-w-[150px] md:max-w-none">{ticket.title}</div>
-                      <div className="text-xs text-muted-foreground">{ticket.created}</div>
+                      <div className="font-medium text-xs md:text-sm truncate max-w-[150px] md:max-w-none">{ticket.titulo}</div>
+                      <div className="text-xs text-muted-foreground">{formatDateTime(ticket.dataCriacao)}</div>
                     </td>
                     <td className="h-10 md:h-12 px-2 md:px-4 align-middle hidden sm:table-cell">
-                      <Badge variant="outline" className="text-xs">{ticket.category}</Badge>
+                      <Badge variant="outline" className="text-xs">{ticket.categoria}</Badge>
                     </td>
                     <td className="h-10 md:h-12 px-2 md:px-4 align-middle">
                       <Badge 
-                        className={`text-xs ${priorityColorsBg[ticket.priority as keyof typeof priorityColorsBg]}`}
+                        className={`text-xs ${priorityColorsBg[ticket.prioridade as keyof typeof priorityColorsBg]}`}
                       >
-                        {ticket.priority}
+                        {ticket.prioridade}
                       </Badge>
                     </td>
                     <td className="h-10 md:h-12 px-2 md:px-4 align-middle">
@@ -259,8 +256,8 @@ export default function Dashboard() {
                         {ticket.status}
                       </Badge>
                     </td>
-                    <td className="h-10 md:h-12 px-2 md:px-4 align-middle hidden md:table-cell text-sm">{ticket.user}</td>
-                    <td className="h-10 md:h-12 px-2 md:px-4 align-middle hidden lg:table-cell text-sm">{ticket.department}</td>
+                    <td className="h-10 md:h-12 px-2 md:px-4 align-middle hidden md:table-cell text-sm">{ticket.usuario}</td>
+                    <td className="h-10 md:h-12 px-2 md:px-4 align-middle hidden lg:table-cell text-sm">{ticket.departamento}</td>
                   </tr>
                 ))}
               </tbody>

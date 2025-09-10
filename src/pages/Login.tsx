@@ -6,10 +6,12 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Lock, Mail, UserCheck } from "lucide-react";
+import { useAuth } from "@/hooks/use-auth";
 
 export default function Login() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const { login } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showForgotPassword, setShowForgotPassword] = useState(false);
@@ -17,17 +19,23 @@ export default function Login() {
   const [resetEmail, setResetEmail] = useState("");
   const [resetSent, setResetSent] = useState(false);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // Simular login sem validação
-    toast({
-      title: "Login realizado com sucesso!",
-      description: "Bem-vindo ao Sistema HelpDesk",
-    });
-    
-    // Redirecionar para o dashboard
-    navigate('/');
+    if (!email || !password) return;
+    const ok = await login(email, password);
+    if (ok) {
+      toast({
+        title: "Login realizado com sucesso!",
+        description: "Bem-vindo ao Sistema HelpDesk",
+      });
+  navigate('/dashboard');
+    } else {
+      toast({
+        title: "Falha ao entrar",
+        description: "Verifique suas credenciais",
+        variant: "destructive",
+      });
+    }
   };
 
   const handleForgotPassword = (e: React.FormEvent) => {
