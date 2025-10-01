@@ -85,7 +85,11 @@ export function useTickets() {
     setTickets((prev) => prev.filter(t => t.id !== id));
   }, [setTickets]);
 
-  return { tickets, addTicket, updateTicket, removeTicket };
+  const replaceAll = useCallback((items: Ticket[]) => {
+    setTickets(() => items);
+  }, [setTickets]);
+
+  return { tickets, addTicket, updateTicket, removeTicket, replaceAll };
 }
 
 function generateTicketId() {

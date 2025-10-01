@@ -11,7 +11,9 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Progress } from "@/components/ui/progress";
 import { Lightbulb, Send, User, AlertTriangle, CheckCircle, X, HelpCircle, ArrowLeft } from "lucide-react";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { useTickets } from "@/hooks/use-tickets";
+import { listDepartments } from "@/lib/departments";
+import { createTicket } from "@/lib/tickets";
+import { useAuth } from "@/hooks/use-auth-hook";
 
 const categories = [
   { value: "hardware", label: "Hardware", description: "Problemas com equipamentos físicos" },
@@ -60,15 +62,7 @@ const mockSuggestions = [
   "Confirme se o usuário possui as permissões necessárias"
 ];
 
-// Setores disponíveis no sistema
-const departments = [
-  { value: "TI", label: "TI" },
-  { value: "Financeiro", label: "Financeiro" },
-  { value: "RH", label: "RH" },
-  { value: "Operações", label: "Operações" },
-  { value: "Marketing", label: "Marketing" },
-  { value: "Vendas", label: "Vendas" },
-];
+type Dept = { id: number; name: string };
 
 export default function NovoTicket() {
   const { toast } = useToast();
@@ -82,11 +76,14 @@ export default function NovoTicket() {
     category: "",
     priority: "",
     description: "",
-    user: "Admin User",
-    department: "", // required; start empty
+    user: "",
+    department: "", // display name only
     email: "",
-    phone: ""
+
   });
+  const [departments, setDepartments] = useState<Dept[]>([]);
+  const [departmentId, setDepartmentId] = useState<number | null>(null);
+  const { user: authUser } = useAuth();
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
 
@@ -111,6 +108,25 @@ export default function NovoTicket() {
     const completedFields = requiredFields.filter(field => formData[field as keyof typeof formData]);
     setProgress((completedFields.length / requiredFields.length) * 100);
   }, [formData]);
+
+  // Load departments and set user display
+  useEffect(() => {
+    let ignore = false;
+    async function boot() {
+      try {
+        const list = await listDepartments();
+        if (!ignore) setDepartments(list);
+      } catch {
+        // ignore
+      }
+      if (authUser && !ignore) {
+        const name = authUser.fullName || authUser.email.split("@")[0];
+        setFormData((prev) => ({ ...prev, user: name }));
+      }
+    }
+    void boot();
+    return () => { ignore = true; };
+  }, [authUser]);
 
   // Validation - Heurística 5: Prevenção de erros
   const validateForm = () => {
@@ -160,14 +176,12 @@ export default function NovoTicket() {
     }
   };
 
-  const generateProtocol = () => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const number = Math.floor(Math.random() * 9999) + 1;
-    return `HD-${year}-${number.toString().padStart(4, '0')}`;
+  const priorityToApi: Record<string, "Urgent" | "High" | "Normal" | "Low"> = {
+    critica: "Urgent",
+    alta: "High",
+    media: "Normal",
+    baixa: "Low",
   };
-
-  const { addTicket } = useTickets();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -184,57 +198,26 @@ export default function NovoTicket() {
     setLoading(true);
 
     try {
-      // Simular envio do ticket
-      await new Promise(resolve => setTimeout(resolve, 2000));
-
-      const protocol = generateProtocol();
-
-      // Map category/priority to display labels
-      const findCategoryLabel = (value: string) => {
-        return categories.find(c => c.value === value)?.label ?? value;
-      };
-      const priorityLabelMap: Record<string, "Crítica" | "Alta" | "Média" | "Baixa"> = {
-        critica: "Crítica",
-        alta: "Alta",
-        media: "Média",
-        baixa: "Baixa",
-      };
-
-      // Persist ticket to shared store
-      const created = addTicket({
-        id: protocol,
-        titulo: formData.title,
-        descricao: formData.description,
-        categoria: findCategoryLabel(formData.category),
-        prioridade: priorityLabelMap[formData.priority],
-        usuario: formData.user,
-        departamento: formData.department,
-      });
-
-      // Extra safety: also merge into localStorage in case environment drops state updates
-      try {
-        const key = "tickets";
-        const raw = localStorage.getItem(key);
-        const parsed: unknown = raw ? JSON.parse(raw) : [];
-        const isHasId = (obj: unknown): obj is { id: string } =>
-          typeof obj === "object" && obj !== null &&
-          "id" in (obj as Record<string, unknown>) &&
-          typeof (obj as Record<string, unknown>).id === "string";
-        const list = Array.isArray(parsed) ? parsed.filter(isHasId) : [];
-        const exists = list.some((t) => t.id === created.id);
-        const next = exists ? list : [created, ...list];
-        localStorage.setItem(key, JSON.stringify(next));
-      } catch {
-        // ignore localStorage merge errors
-        void 0;
+      if (!departmentId) {
+        setErrors((prev) => ({ ...prev, department: "Setor é obrigatório" }));
+        setLoading(false);
+        return;
       }
+
+      // Call backend
+      const created = await createTicket({
+        subject: formData.title,
+        description: formData.description,
+        priority: priorityToApi[formData.priority],
+        departmentId: departmentId,
+      });
 
       // Clear draft on successful submission
       localStorage.removeItem('ticket-draft');
 
       toast({
         title: "Ticket criado com sucesso!",
-        description: `Protocolo: ${protocol}. Você receberá atualizações por email.`,
+        description: `Protocolo: ${created.id}. Você receberá atualizações por email.`,
         duration: 5000,
       });
 
@@ -247,12 +230,12 @@ export default function NovoTicket() {
         user: "Admin User",
         department: "",
         email: "",
-        phone: ""
+
       });
       setShowSuggestions(false);
       setErrors({});
 
-      navigate("/meus-tickets");
+      navigate("/todos-chamados");
     } catch (error) {
       toast({
         title: "Erro ao criar ticket",
@@ -274,7 +257,7 @@ export default function NovoTicket() {
       user: "Admin User",
       department: "",
       email: "",
-      phone: ""
+
     });
     setErrors({});
     setShowSuggestions(false);
@@ -380,16 +363,21 @@ export default function NovoTicket() {
                         </Tooltip>
                       </Label>
                       <Select
-                        value={formData.department}
-                        onValueChange={(value) => setFormData({ ...formData, department: value })}
+                        value={departmentId ? String(departmentId) : ""}
+                        onValueChange={(value) => {
+                          const id = Number(value);
+                          setDepartmentId(id);
+                          const name = departments.find(d => d.id === id)?.name ?? "";
+                          setFormData({ ...formData, department: name });
+                        }}
                       >
                         <SelectTrigger id="department" className={`text-sm ${errors.department ? 'border-destructive' : ''}`}>
                           <SelectValue placeholder="Selecione o setor" />
                         </SelectTrigger>
                         <SelectContent>
                           {departments.map((dept) => (
-                            <SelectItem key={dept.value} value={dept.value}>
-                              <span className="font-medium text-sm">{dept.label}</span>
+                            <SelectItem key={dept.id} value={String(dept.id)}>
+                              <span className="font-medium text-sm">{dept.name}</span>
                             </SelectItem>
                           ))}
                         </SelectContent>
@@ -547,7 +535,7 @@ export default function NovoTicket() {
                   </div>
 
                   {/* Contact Information */}
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="grid grid-cols-1 sm:grid-cols-1 gap-4">
                     <div className="space-y-2">
                       <Label htmlFor="email">E-mail para Contato</Label>
                       <Input
@@ -561,16 +549,6 @@ export default function NovoTicket() {
                       {errors.email && (
                         <p className="text-sm text-destructive">{errors.email}</p>
                       )}
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="phone">Telefone</Label>
-                      <Input
-                        id="phone"
-                        placeholder="(11) 99999-9999"
-                        value={formData.phone}
-                        onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
-                      />
                     </div>
                   </div>
 

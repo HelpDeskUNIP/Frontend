@@ -6,7 +6,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Lock, Mail, UserCheck } from "lucide-react";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/hooks/use-auth-hook";
 
 export default function Login() {
   const navigate = useNavigate();
@@ -28,7 +28,7 @@ export default function Login() {
         title: "Login realizado com sucesso!",
         description: "Bem-vindo ao Sistema HelpDesk",
       });
-  navigate('/dashboard');
+      navigate('/dashboard');
     } else {
       toast({
         title: "Falha ao entrar",
@@ -40,10 +40,10 @@ export default function Login() {
 
   const handleForgotPassword = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // Simular envio de email de reset
     setResetSent(true);
-    
+
     // Resetar formulário após 3 segundos
     setTimeout(() => {
       setResetSent(false);
@@ -67,7 +67,7 @@ export default function Login() {
             </CardDescription>
           </div>
         </CardHeader>
-        
+
         <CardContent className="p-4 md:p-6">
           {!showForgotPassword ? (
             <>
@@ -87,7 +87,7 @@ export default function Login() {
                     />
                   </div>
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="password">Senha</Label>
                   <div className="relative">
@@ -103,16 +103,16 @@ export default function Login() {
                     />
                   </div>
                 </div>
-                
-                <Button 
-                  type="submit" 
+
+                <Button
+                  type="submit"
                   className="w-full"
                   size="lg"
                 >
                   Entrar
                 </Button>
               </form>
-              
+
               <div className="mt-4 text-center">
                 <Button
                   type="button"
@@ -134,7 +134,7 @@ export default function Login() {
                       Preencha os campos abaixo para receber o link de redefinição
                     </p>
                   </div>
-                  
+
                   <form onSubmit={handleForgotPassword} className="space-y-4">
                     <div className="space-y-2">
                       <Label htmlFor="reset-name">Nome</Label>
@@ -147,7 +147,7 @@ export default function Login() {
                         required
                       />
                     </div>
-                    
+
                     <div className="space-y-2">
                       <Label htmlFor="reset-email">Email</Label>
                       <div className="relative">
@@ -163,16 +163,16 @@ export default function Login() {
                         />
                       </div>
                     </div>
-                    
-                    <Button 
-                      type="submit" 
+
+                    <Button
+                      type="submit"
                       className="w-full"
                       size="lg"
                     >
                       Enviar
                     </Button>
                   </form>
-                  
+
                   <div className="text-center">
                     <Button
                       type="button"
@@ -197,7 +197,7 @@ export default function Login() {
               )}
             </div>
           )}
-          
+
           <div className="mt-4 md:mt-6 text-center text-xs md:text-sm text-muted-foreground">
             <p>Sistema de Gerenciamento de Tickets</p>
             <p className="text-xs mt-1">v1.0 - Acesso Administrativo</p>

@@ -12,13 +12,42 @@ dist
 dist-ssr
 *.local
 
+# Env files (Vite/Node)
+.env
+.env.local
+.env.*.local
+
+# Test/Reports
+playwright-report/
+test-results/
+coverage/
+
+# OS
+.DS_Store
+Thumbs.db
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
 .idea
-.DS_Store
 *.suo
 *.ntvs*
 *.njsproj
-*.sln
+*.code-workspace
 *.sw?
+
+# .NET/Visual Studio
+.vs/
+**/bin/
+**/obj/
+**/Debug/
+**/Release/
+*.user
+*.csproj.user
+**/Logs/
+*.mdf
+*.ldf
+
+# App settings (local overrides)
+**/appsettings.Local.json
+**/appsettings.*.Local.json

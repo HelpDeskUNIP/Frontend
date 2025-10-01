@@ -4,10 +4,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { 
-  TicketPlus, 
-  Clock, 
-  CheckCircle, 
+import ResponsiveSelect from "@/components/ui/responsive-select";
+import {
+  TicketPlus,
+  Clock,
+  CheckCircle,
   AlertTriangle,
   TrendingUp,
   Users,
@@ -15,6 +16,9 @@ import {
 } from "lucide-react";
 import heroImage from "@/assets/helpdesk-hero.jpg";
 import { useTickets, Ticket } from "@/hooks/use-tickets";
+import { useIsMobile } from "@/hooks/use-mobile";
+import { Drawer, DrawerContent, DrawerHeader, DrawerTitle, DrawerClose } from "@/components/ui/drawer";
+import { ScrollArea } from "@/components/ui/scroll-area";
 
 // Helpers
 const formatDateTime = (iso?: string) => {
@@ -24,21 +28,21 @@ const formatDateTime = (iso?: string) => {
 
 const priorityColors = {
   "Crítica": "bg-priority-critical text-white",
-  "Alta": "bg-priority-high text-white", 
+  "Alta": "bg-priority-high text-white",
   "Média": "bg-priority-medium text-white",
   "Baixa": "bg-priority-low text-white"
 };
 
-  const priorityColorsBg = {
-    "Crítica": "bg-red-50 text-red-700 border-red-200",
-    "Alta": "bg-orange-50 text-orange-700 border-orange-200", 
-    "Média": "bg-orange-50 text-orange-700 border-orange-200",
-    "Baixa": "bg-green-50 text-green-700 border-green-200"
-  };
+const priorityColorsBg = {
+  "Crítica": "bg-red-50 text-red-700 border-red-200",
+  "Alta": "bg-orange-50 text-orange-700 border-orange-200",
+  "Média": "bg-orange-50 text-orange-700 border-orange-200",
+  "Baixa": "bg-green-50 text-green-700 border-green-200"
+};
 
 const statusColors = {
   "Aberto": "bg-blue-100 text-blue-800 dark:bg-blue-900/20 dark:text-blue-400",
-  "Em Andamento": "bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400", 
+  "Em Andamento": "bg-orange-100 text-orange-800 dark:bg-orange-900/20 dark:text-orange-400",
   "Resolvido": "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400",
   "Fechado": "bg-gray-100 text-gray-800 dark:bg-gray-900/20 dark:text-gray-400"
 };
@@ -46,12 +50,15 @@ const statusColors = {
 export default function Dashboard() {
   const navigate = useNavigate();
   const { tickets } = useTickets();
+  const isMobile = useIsMobile();
   const [filterPriority, setFilterPriority] = useState<string>("all");
   const [filterStatus, setFilterStatus] = useState<string>("all");
+  const [openDetail, setOpenDetail] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
 
   const sortedTickets = useMemo(() =>
     [...tickets].sort((a, b) => new Date(b.dataCriacao).getTime() - new Date(a.dataCriacao).getTime())
-  , [tickets]);
+    , [tickets]);
 
   const filteredTickets = useMemo(() => {
     return sortedTickets.filter((ticket) => {
@@ -60,6 +67,14 @@ export default function Dashboard() {
       return priorityMatch && statusMatch;
     });
   }, [sortedTickets, filterPriority, filterStatus]);
+
+  const selectedTicket = useMemo(() => tickets.find(t => t.id === selectedId) || null, [tickets, selectedId]);
+
+  // Prevent background scroll when mobile drawer is open
+  if (typeof document !== "undefined") {
+    if (isMobile && openDetail) document.body.style.overflow = "hidden";
+    else document.body.style.overflow = "";
+  }
 
   // Metrics
   const totalTickets = tickets.length;
@@ -86,9 +101,9 @@ export default function Dashboard() {
       {/* Hero Section */}
       <div className="relative rounded-xl overflow-hidden bg-gradient-hero text-white">
         <div className="absolute inset-0">
-          <img 
-            src={heroImage} 
-            alt="HelpDesk Professional" 
+          <img
+            src={heroImage}
+            alt="HelpDesk Professional"
             className="w-full h-full object-cover opacity-20"
           />
         </div>
@@ -97,9 +112,9 @@ export default function Dashboard() {
           <p className="text-sm md:text-base lg:text-lg opacity-90 mb-4 md:mb-6">
             Gerencie todos os tickets de suporte da sua empresa de forma eficiente
           </p>
-          <Button 
-            size="lg" 
-            variant="secondary" 
+          <Button
+            size="lg"
+            variant="secondary"
             className="bg-white text-primary hover:bg-white/90 w-full sm:w-auto"
             onClick={() => navigate("/novo-ticket")}
           >
@@ -111,13 +126,13 @@ export default function Dashboard() {
 
       {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 md:gap-4 lg:gap-6">
-    <Card className="shadow-card hover:shadow-card-hover transition-shadow">
+        <Card className="shadow-card hover:shadow-card-hover transition-shadow">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-xs md:text-sm font-medium">Total de Tickets</CardTitle>
             <TicketPlus className="h-3 w-3 md:h-4 md:w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-      <div className="text-lg md:text-xl lg:text-2xl font-bold text-primary">{totalTickets}</div>
+            <div className="text-lg md:text-xl lg:text-2xl font-bold text-primary">{totalTickets}</div>
             <p className="text-xs text-muted-foreground hidden sm:block">
               <TrendingUp className="inline h-3 w-3 mr-1" />
               +12% desde semana passada
@@ -165,17 +180,141 @@ export default function Dashboard() {
         </Card>
       </div>
 
-      {/* Tickets Table */}
-      <Card className="shadow-card">
+      {/* Tickets Recentes - Mobile: Cards + Drawer */}
+      <div className="md:hidden">
+        <Card className="shadow-card">
+          <CardHeader>
+            <div className="flex flex-col gap-4">
+              <div>
+                <CardTitle className="text-lg">Tickets Recentes</CardTitle>
+                <CardDescription className="text-sm">Gerencie e acompanhe seus tickets</CardDescription>
+              </div>
+              <div className="flex flex-col gap-2">
+                <ResponsiveSelect
+                  value={filterPriority}
+                  onChange={setFilterPriority}
+                  placeholder="Prioridade"
+                  title="Selecionar prioridade"
+                  options={[
+                    { value: "all", label: "Todas" },
+                    { value: "Crítica", label: "Crítica" },
+                    { value: "Alta", label: "Alta" },
+                    { value: "Média", label: "Média" },
+                    { value: "Baixa", label: "Baixa" },
+                  ]}
+                />
+                <ResponsiveSelect
+                  value={filterStatus}
+                  onChange={setFilterStatus}
+                  placeholder="Status"
+                  title="Selecionar status"
+                  options={[
+                    { value: "all", label: "Todos" },
+                    { value: "Aberto", label: "Aberto" },
+                    { value: "Em Andamento", label: "Em Andamento" },
+                    { value: "Resolvido", label: "Resolvido" },
+                  ]}
+                />
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent>
+            {filteredTickets.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">Nenhum ticket encontrado</div>
+            ) : (
+              <div className="flex flex-col gap-3">
+                {filteredTickets.map((ticket) => (
+                  <Card key={ticket.id} role="button" aria-label={`Abrir detalhes do ticket ${ticket.id}`} onClick={() => { setSelectedId(ticket.id); setOpenDetail(true); }}>
+                    <CardContent className="p-4 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <code className="font-mono text-xs bg-muted px-2 py-1 rounded">{ticket.id}</code>
+                        <Badge className={`text-xs ${statusColors[ticket.status as keyof typeof statusColors]}`}>{ticket.status}</Badge>
+                      </div>
+                      <div className="font-medium leading-snug">{ticket.titulo}</div>
+                      <div className="text-xs text-muted-foreground">{formatDateTime(ticket.dataCriacao)}</div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm">{ticket.departamento}</span>
+                        <Badge className={`text-xs ${priorityColorsBg[ticket.prioridade as keyof typeof priorityColorsBg]}`}>{ticket.prioridade}</Badge>
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+            )}
+          </CardContent>
+        </Card>
+
+        <Drawer open={openDetail} onOpenChange={setOpenDetail} shouldScaleBackground>
+          <DrawerContent className="max-h-[85vh]">
+            <DrawerHeader>
+              <DrawerTitle>Detalhes do Ticket</DrawerTitle>
+            </DrawerHeader>
+            <div className="p-4 pt-0 space-y-4">
+              {!selectedTicket ? (
+                <div className="text-muted-foreground">Selecione um ticket</div>
+              ) : (
+                <div className="space-y-3">
+                  <div className="flex items-center justify-between flex-wrap gap-2">
+                    <code className="font-mono text-xs bg-muted px-2 py-1 rounded">{selectedTicket.id}</code>
+                    <Badge className={`text-xs ${statusColors[selectedTicket.status as keyof typeof statusColors]}`}>{selectedTicket.status}</Badge>
+                  </div>
+                  <div>
+                    <div className="text-sm text-muted-foreground">Título</div>
+                    <div className="font-medium">{selectedTicket.titulo}</div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button className="flex-1" variant="outline" onClick={() => navigate(`/visualizar-ticket/${selectedTicket.id}`)}>Ver</Button>
+                    <Button className="flex-1" onClick={() => navigate(`/editar-ticket/${selectedTicket.id}`)}>Editar</Button>
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <div className="text-sm text-muted-foreground">Usuário</div>
+                      <div className="text-sm">{selectedTicket.usuario}</div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground">Departamento</div>
+                      <div className="text-sm">{selectedTicket.departamento}</div>
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground">Prioridade</div>
+                      <Badge className={`text-xs ${priorityColorsBg[selectedTicket.prioridade as keyof typeof priorityColorsBg]}`}>{selectedTicket.prioridade}</Badge>
+                    </div>
+                    <div>
+                      <div className="text-sm text-muted-foreground">Data de Abertura</div>
+                      <div className="text-sm">{formatDateTime(selectedTicket.dataCriacao)}</div>
+                    </div>
+                  </div>
+                  {!!selectedTicket.descricao?.trim() && (
+                    <div>
+                      <div className="text-sm text-muted-foreground mb-1">Descrição</div>
+                      <ScrollArea className="max-h-40 rounded-md border bg-muted/30 p-3">
+                        <div className="whitespace-pre-wrap text-sm leading-relaxed pr-2">{selectedTicket.descricao}</div>
+                      </ScrollArea>
+                    </div>
+                  )}
+                </div>
+              )}
+              <div className="mt-2">
+                <DrawerClose asChild>
+                  <Button variant="secondary" className="w-full">Fechar</Button>
+                </DrawerClose>
+              </div>
+            </div>
+          </DrawerContent>
+        </Drawer>
+      </div>
+
+      {/* Tickets Table - Desktop */}
+      <Card className="shadow-card hidden md:block">
         <CardHeader>
           <div className="flex flex-col gap-4">
             <div>
               <CardTitle className="text-lg md:text-xl">Tickets Recentes</CardTitle>
               <CardDescription className="text-sm">Gerencie e acompanhe todos os tickets de suporte</CardDescription>
             </div>
-            <div className="flex flex-col sm:flex-row gap-2">
+            <div className="flex flex-row gap-2">
               <Select value={filterPriority} onValueChange={setFilterPriority}>
-                <SelectTrigger className="w-full sm:w-[140px]">
+                <SelectTrigger className="w-[160px]">
                   <Filter className="mr-2 h-4 w-4" />
                   <SelectValue placeholder="Prioridade" />
                 </SelectTrigger>
@@ -188,7 +327,7 @@ export default function Dashboard() {
                 </SelectContent>
               </Select>
               <Select value={filterStatus} onValueChange={setFilterStatus}>
-                <SelectTrigger className="w-full sm:w-[140px]">
+                <SelectTrigger className="w-[160px]">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -245,7 +384,7 @@ export default function Dashboard() {
                       <Badge variant="outline" className="text-xs">{ticket.categoria}</Badge>
                     </td>
                     <td className="h-10 md:h-12 px-2 md:px-4 align-middle">
-                      <Badge 
+                      <Badge
                         className={`text-xs ${priorityColorsBg[ticket.prioridade as keyof typeof priorityColorsBg]}`}
                       >
                         {ticket.prioridade}

@@ -18,7 +18,7 @@ import { useState, useEffect } from "react";
 import { useTheme } from "next-themes";
 import { useToast } from "@/hooks/use-toast";
 import { useLocalStorage } from "@/hooks/use-local-storage";
-import { useAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/hooks/use-auth-hook";
 
 const routeNames: Record<string, string> = {
   '/dashboard': 'Dashboard',

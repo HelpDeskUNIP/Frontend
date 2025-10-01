@@ -1,67 +1,80 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { api, ApiResponse, getToken, setToken } from "@/lib/api";
+import { AuthContext, AuthUser } from "./auth-context";
 
-type AuthUser = {
-  email: string;
-  name?: string;
-};
-
-type AuthContextValue = {
-  user: AuthUser | null;
-  isAuthenticated: boolean;
-  loading: boolean;
-  login: (email: string, password: string) => Promise<boolean>;
-  logout: () => void;
-};
-
-const AuthContext = createContext<AuthContextValue | undefined>(undefined);
-
-const STORAGE_KEY = "auth";
+const STORAGE_KEY = "auth_user";
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<AuthUser | null>(null);
-  const [loading, setLoading] = useState(true);
+    const [user, setUser] = useState<AuthUser | null>(null);
+    const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw) as AuthUser | null;
-        if (parsed && parsed.email) setUser(parsed);
-      }
-    } catch {
-      // ignore
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    useEffect(() => {
+        // On boot, try to hydrate user from localStorage and, if token exists, validate via /auth/profile
+        const boot = async () => {
+            try {
+                const raw = localStorage.getItem(STORAGE_KEY);
+                if (raw) {
+                    const parsed = JSON.parse(raw) as AuthUser | null;
+                    if (parsed?.email) setUser(parsed);
+                }
+                const token = getToken();
+                if (token) {
+                    try {
+                        const res = await api.get<ApiResponse<AuthUser>>("/auth/profile");
+                        if (res.data?.data) {
+                            const u = res.data.data;
+                            const mapped: AuthUser = { ...u, name: u.fullName || u.email.split("@")[0] };
+                            setUser(mapped);
+                            localStorage.setItem(STORAGE_KEY, JSON.stringify(mapped));
+                        }
+                    } catch {
+                        // token invalid; clear
+                        setToken(null);
+                        localStorage.removeItem(STORAGE_KEY);
+                        setUser(null);
+                    }
+                }
+            } finally {
+                setLoading(false);
+            }
+        };
+        void boot();
+    }, []);
 
-  const login = useCallback(async (email: string, password: string) => {
-    // Simples validação local: aceita qualquer email/senha não vazios
-    if (!email || !password) return false;
-    const account: AuthUser = { email, name: email.split("@")[0] };
-    setUser(account);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(account));
-    return true;
-  }, []);
+    const login = useCallback(async (email: string, password: string) => {
+        if (!email || !password) return false;
+        try {
+            const res = await api.post<ApiResponse<{ token: string; refreshToken: string; expiresAt: string; user: AuthUser }>>(
+                "/auth/login",
+                { email, password }
+            );
+            const payload = res.data?.data;
+            if (!payload?.token || !payload?.user) return false;
+            setToken(payload.token);
+            const mapped: AuthUser = { ...payload.user, name: payload.user.fullName || payload.user.email.split("@")[0] };
+            setUser(mapped);
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(mapped));
+            return true;
+        } catch (e) {
+            return false;
+        }
+    }, []);
 
-  const logout = useCallback(() => {
-    setUser(null);
-    localStorage.removeItem(STORAGE_KEY);
-  }, []);
+    const logout = useCallback(() => {
+        setUser(null);
+        setToken(null);
+        localStorage.removeItem(STORAGE_KEY);
+    }, []);
 
-  const value = useMemo<AuthContextValue>(() => ({
-    user,
-    isAuthenticated: !!user,
-    loading,
-    login,
-    logout,
-  }), [user, loading, login, logout]);
+    const value = useMemo(() => ({
+        user,
+        isAuthenticated: !!user,
+        loading,
+        login,
+        logout,
+    }), [user, loading, login, logout]);
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+    return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 }
 
-export function useAuth() {
-  const ctx = useContext(AuthContext);
-  if (!ctx) throw new Error("useAuth must be used within an AuthProvider");
-  return ctx;
-}
+// Note: useAuth hook is defined in use-auth-hook.ts to keep this file export clean for Fast Refresh.
