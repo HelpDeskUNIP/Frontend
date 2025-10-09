@@ -7,6 +7,11 @@ if (!API_URL) {
     console.warn("VITE_API_URL is not set. Set it in .env.local, e.g., VITE_API_URL=http://localhost:5140/api");
 }
 
+// Helpful at runtime (especially in Android builds) to confirm which base URL is in use
+if (import.meta.env.MODE === "android") {
+    console.info("[Android] Using VITE_API_URL:", API_URL);
+}
+
 export const TOKEN_STORAGE_KEY = "auth_token";
 
 export function getToken(): string | null {
@@ -43,6 +48,15 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
     (res) => res,
     async (error) => {
+        if (import.meta.env.MODE === "android") {
+            console.error("[Android] API error:", {
+                message: error?.message,
+                status: error?.response?.status,
+                url: error?.config?.baseURL ? `${error?.config?.baseURL}${error?.config?.url ?? ""}` : error?.config?.url,
+                method: error?.config?.method,
+                data: error?.config?.data,
+            });
+        }
         if (error?.response?.status === 401) {
             // Token expirado ou inválido; limpe e deixe fluxo de login cuidar
             setToken(null);
@@ -50,6 +64,17 @@ api.interceptors.response.use(
         return Promise.reject(error);
     }
 );
+
+// Extra request logging only on Android builds to help debug networking
+if (import.meta.env.MODE === "android") {
+    api.interceptors.request.use((config) => {
+        console.info("[Android] API request:", {
+            method: config.method,
+            url: config.baseURL ? `${config.baseURL}${config.url ?? ""}` : config.url,
+        });
+        return config;
+    });
+}
 
 export type ApiResponse<T> = {
     message?: string;

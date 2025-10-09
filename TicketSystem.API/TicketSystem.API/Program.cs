@@ -27,14 +27,22 @@ builder.Host.UseSerilog(Log.Logger);
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
 	var connectionString = builder.Configuration.GetConnectionString("DefaultConnection");
-	options.UseSqlServer(connectionString, sqlOptions =>
+	if (!string.IsNullOrWhiteSpace(connectionString))
 	{
-		sqlOptions.EnableRetryOnFailure(
-			maxRetryCount: 3,
-			maxRetryDelay: TimeSpan.FromSeconds(5),
-			errorNumbersToAdd: null
-		);
-	});
+		options.UseSqlServer(connectionString, sqlOptions =>
+		{
+			sqlOptions.EnableRetryOnFailure(
+				maxRetryCount: 3,
+				maxRetryDelay: TimeSpan.FromSeconds(5),
+				errorNumbersToAdd: null
+			);
+		});
+	}
+	else
+	{
+		// Fallback amigável para DEV quando não houver conexão configurada
+		options.UseInMemoryDatabase("DevDb");
+	}
 });
 
 // AutoMapper
@@ -79,7 +87,15 @@ builder.Services.AddCors(options =>
 {
 	options.AddPolicy("DefaultCors", policy =>
 	{
-		if (allowedOrigins.Length > 0)
+		if (builder.Environment.IsDevelopment())
+		{
+			// In Development, be maximally permissive to unblock mobile/WebView
+			policy
+				.SetIsOriginAllowed(_ => true)
+				.AllowAnyHeader()
+				.AllowAnyMethod();
+		}
+		else if (allowedOrigins.Length > 0)
 		{
 			policy.WithOrigins(allowedOrigins)
 				  .AllowAnyHeader()
@@ -87,8 +103,10 @@ builder.Services.AddCors(options =>
 		}
 		else
 		{
-			// Fallback for development when not configured
-			policy.AllowAnyOrigin().AllowAnyHeader().AllowAnyMethod();
+			// Sensible fallback when not configured
+			policy.WithOrigins("https://your-production-origin.example")
+				  .AllowAnyHeader()
+				  .AllowAnyMethod();
 		}
 	});
 });
@@ -140,7 +158,11 @@ var app = builder.Build();
 
 // Pipeline
 app.UseSerilogRequestLogging();
-app.UseHttpsRedirection();
+// Em desenvolvimento, evitar redirecionamento HTTPS para facilitar testes no emulador Android (10.0.2.2)
+if (!app.Environment.IsDevelopment())
+{
+	app.UseHttpsRedirection();
+}
 app.UseCors("DefaultCors");
 app.UseRateLimiter();
 app.UseAuthentication();
@@ -255,3 +277,6 @@ Log.Information("Ticket System API iniciada.");
 Log.Information("Login padrão - Email: admin@ticketsystem.com | Senha: admin123");
 
 app.Run();
+
+// Expose Program for test host (partial class pattern)
+public partial class Program { }

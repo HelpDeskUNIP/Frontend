@@ -17,6 +17,9 @@ dist-ssr
 .env.local
 .env.*.local
 
+# Vite cache
+.vite/
+
 # Test/Reports
 playwright-report/
 test-results/
@@ -51,3 +54,16 @@ Thumbs.db
 # App settings (local overrides)
 **/appsettings.Local.json
 **/appsettings.*.Local.json
+
+# Android / Capacitor (generated assets, local config, and build outputs)
+android/local.properties
+android/.gradle/
+android/**/build/
+android/**/.cxx/
+android/**/.externalNativeBuild/
+android/**/captures/
+android/app/src/main/assets/public/
+android/app/src/main/assets/capacitor.config.json
+*.keystore
+*.jks
+*.iml
