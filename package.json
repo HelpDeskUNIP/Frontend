@@ -6,6 +6,20 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "build:electron": "vite build --mode electron",
+    "electron:dev": "cross-env NODE_ENV=development concurrently \"vite\" \"electron .\"",
+    "electron:pack": "electron-builder --dir",
+    "electron:build": "electron-builder -c.extraMetadata.main=electron/main.js",
+    "api:dev": "cross-env ASPNETCORE_ENVIRONMENT=Development dotnet run --project TicketSystem.API/TicketSystem.API --no-launch-profile --urls \"http://0.0.0.0:5000\"",
+    "api:watch": "cross-env ASPNETCORE_ENVIRONMENT=Development dotnet watch --project TicketSystem.API/TicketSystem.API run --no-launch-profile --urls \"http://0.0.0.0:5000\"",
+    "adb:reverse": "adb reverse tcp:5000 tcp:5000",
+    "adb:reverse:clear": "adb reverse --remove-all",
+    "dev:android:api": "concurrently \"npm:api:dev\" \"npm:adb:reverse\"",
+    "dev:web:api": "concurrently \"npm:api:dev\" \"npm run dev\"",
+    "dev:desktop": "concurrently \"npm:api:dev\" \"npm run electron:dev\"",
+    "start:web": "npm run dev:web:api",
+    "start:desktop": "npm run dev:desktop",
+    "start:android": "npm run dev:android:api",
     "build:android": "vite build --mode android",
     "build:dev": "vite build --mode development",
     "lint": "eslint .",
@@ -19,12 +33,14 @@
     "android:sync": "npm run build:android && npx cap sync android",
     "android:apk": "npm run android:sync && cd android && gradlew.bat assembleDebug",
     "android:install": "adb install -r android\\app\\build\\outputs\\apk\\debug\\app-debug.apk",
-    "android:run": "npm run android:apk && npm run android:install"
+    "android:run": "npm run android:apk && npm run android:install",
+    "android:dev:full": "concurrently -k \"npm:api:dev\" \"npm:adb:reverse\" \"npm run android:run\""
   },
   "dependencies": {
     "@capacitor/android": "^7.4.3",
     "@capacitor/cli": "^7.4.3",
     "@capacitor/core": "^7.4.3",
+    "@capacitor/status-bar": "^7.0.3",
     "@hookform/resolvers": "^3.10.0",
     "@radix-ui/react-accordion": "^1.2.11",
     "@radix-ui/react-alert-dialog": "^1.1.14",
@@ -105,6 +121,35 @@
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.38.0",
     "vite": "^5.4.19",
-    "vitest": "^2.1.4"
+    "vitest": "^2.1.4",
+    "concurrently": "^9.1.0",
+    "cross-env": "^7.0.3",
+    "electron": "^34.0.0",
+    "electron-builder": "^25.1.8"
+  },
+  "main": "electron/main.js",
+  "build": {
+    "appId": "com.helpdeskunip.desktop",
+    "productName": "HelpDeskUNIP",
+    "directories": {
+      "buildResources": "build"
+    },
+    "files": [
+      "dist/**/*",
+      "electron/**/*"
+    ],
+    "extraMetadata": {
+      "main": "electron/main.js"
+    },
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    }
   }
 }

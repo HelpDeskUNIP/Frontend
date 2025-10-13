@@ -141,7 +141,7 @@ export function Header() {
 
   return (
     <TooltipProvider>
-      <header className="h-14 md:h-16 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50">
+  <header className="h-12 md:h-16 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 sticky top-0 z-50 header-safe">
         <div className="flex h-full items-center justify-between px-3 md:px-6">
           <div className="flex items-center gap-2 md:gap-4 min-w-0">
             <SidebarTrigger className="h-8 w-8 flex-shrink-0" />

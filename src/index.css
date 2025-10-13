@@ -150,5 +150,18 @@
 
   body {
     @apply bg-background text-foreground;
+    /* Respect safe areas on devices with display cutouts (Pixel 6, iPhones with notch)
+       Note: top inset is intentionally not applied on Android because the StatusBar
+       is configured not to overlay the WebView (overlay=false), so adding it here
+       would create extra gap. */
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+  /* Slightly reduce the default top safe-area to bring content closer to the status bar
+     without overlapping icons. Works across platforms (clamped at 0 when no inset). */
+  .header-safe {
+    padding-top: max(calc(env(safe-area-inset-top) - 6px), 0px);
   }
 }
