@@ -29,7 +29,7 @@ const priorityColors = {
 export default function VisualizarTicket() {
   const { id } = useParams();
   const navigate = useNavigate();
-  const { tickets } = useTickets();
+  const { tickets, upsertTicketDetail } = useTickets();
   const [remoteTicket, setRemoteTicket] = useState<Ticket | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -40,10 +40,28 @@ export default function VisualizarTicket() {
     let ignore = false;
     async function load() {
       if (!id) { setLoading(false); return; }
+      if (localTicket?.hasFullDetail) {
+        setLoading(false);
+        return; // já temos detalhe persistido
+      }
       setLoading(true);
       setError(null);
       try {
-        const t = await getTicketByNumber(id);
+        const t = await getTicketByNumber(id, (full) => {
+          upsertTicketDetail({
+            id: full.id,
+            descricao: full.descricao,
+            titulo: full.titulo,
+            prioridade: full.prioridade,
+            status: full.status,
+            usuario: full.usuario,
+            departamento: full.departamento,
+            dataCriacao: full.dataCriacao,
+            dataAtualizacao: full.dataAtualizacao,
+            slaVencimento: full.slaVencimento,
+            hasFullDetail: true,
+          });
+        });
         if (!ignore) setRemoteTicket(t);
       } catch (e) {
         if (!ignore) setError("Falha ao carregar chamado do servidor");
@@ -53,19 +71,67 @@ export default function VisualizarTicket() {
     }
     load();
     return () => { ignore = true; };
-  }, [id]);
+  }, [id, localTicket?.hasFullDetail, upsertTicketDetail]);
 
   const ticket = remoteTicket ?? localTicket;
 
+  // Fallback: if we have a local ticket without descricao (list mapping), merge remote description once loaded
+  if (ticket && remoteTicket && !localTicket?.descricao && remoteTicket.descricao) {
+    ticket.descricao = remoteTicket.descricao;
+  }
+
   if (loading) {
     return (
-      <div className="p-6">
-        <Card>
-          <CardContent className="p-6 text-center">
-            <h2 className="text-2xl font-semibold mb-2">Carregando chamado...</h2>
-          </CardContent>
-        </Card>
-      </div>
+      <main className="p-4 sm:p-6 space-y-6" aria-busy="true" aria-labelledby="ticket-heading">
+        <div className="flex items-center gap-3 animate-pulse">
+          <div className="h-8 w-8 rounded-md bg-muted" />
+          <div className="space-y-2 w-full max-w-md">
+            <div className="h-4 bg-muted rounded w-2/3" />
+            <div className="h-3 bg-muted rounded w-1/3" />
+          </div>
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+          <div className="lg:col-span-2 space-y-6">
+            <Card>
+              <CardHeader>
+                <div className="h-5 bg-muted rounded w-48" />
+                <div className="h-3 bg-muted rounded w-64 mt-2" />
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {Array.from({ length: 4 }).map((_, i) => (
+                  <div key={i} className="space-y-2">
+                    <div className="h-3 bg-muted rounded w-24" />
+                    <div className="h-9 bg-muted rounded" />
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+            <Card>
+              <CardHeader>
+                <div className="h-5 bg-muted rounded w-56" />
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2">
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <div key={i} className="h-3 bg-muted rounded w-full" />
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+          <div className="space-y-6">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <Card key={i}>
+                <CardContent className="p-4 space-y-3">
+                  <div className="h-4 bg-muted rounded w-40" />
+                  <div className="h-9 bg-muted rounded" />
+                  <div className="h-3 bg-muted rounded w-1/2" />
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      </main>
     );
   }
 
@@ -88,32 +154,34 @@ export default function VisualizarTicket() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <Button
-          variant="outline"
-          onClick={() => navigate("/meus-tickets")}
-          className="flex items-center gap-2"
-        >
-          <ArrowLeft className="h-4 w-4" />
-          Voltar
-        </Button>
-
-        <div>
-          <h1 className="text-3xl font-bold tracking-tight">
-            Visualizar Chamado {ticket.id}
-          </h1>
-          <p className="text-muted-foreground mt-2">
-            Detalhes completos do chamado
-          </p>
+    <main className="p-4 sm:p-6 space-y-6" aria-labelledby="ticket-heading">
+      {/* Header / Back */}
+      <header className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate("/meus-tickets")}
+            className="shrink-0 focus-visible:ring-2 focus-visible:ring-offset-2"
+            aria-label="Voltar para lista de chamados"
+          >
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
+            <span className="hidden xs:inline">Voltar</span>
+          </Button>
+          <div>
+            <h1 id="ticket-heading" className="text-2xl sm:text-3xl font-bold tracking-tight leading-tight">
+              Visualizar Chamado <span className="text-primary break-all">{ticket.id}</span>
+            </h1>
+            <p className="text-muted-foreground text-sm sm:text-base">Detalhes completos do chamado</p>
+          </div>
         </div>
-      </div>
+      </header>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 space-y-6">
-          <Card>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6">
+        <section className="lg:col-span-2 space-y-6" aria-label="Conteúdo principal do chamado">
+          <Card role="region" aria-labelledby="info-title">
             <CardHeader>
-              <CardTitle>Informações do Chamado</CardTitle>
+              <CardTitle id="info-title">Informações do Chamado</CardTitle>
               <CardDescription>
                 Detalhes completos do chamado (somente leitura)
               </CardDescription>
@@ -133,10 +201,11 @@ export default function VisualizarTicket() {
                 <Label htmlFor="descricao">Descrição</Label>
                 <Textarea
                   id="descricao"
-                  value={ticket.descricao}
+                  data-testid="ticket-descricao"
+                  value={ticket.descricao || "(Sem descrição)"}
                   readOnly
-                  rows={4}
-                  className="bg-muted cursor-not-allowed resize-none"
+                  rows={6}
+                  className="bg-muted cursor-not-allowed resize-none text-sm leading-relaxed"
                 />
               </div>
 
@@ -185,10 +254,10 @@ export default function VisualizarTicket() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card role="region" aria-labelledby="historico-title">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Clock className="h-5 w-5" />
+              <CardTitle id="historico-title" className="flex items-center gap-2">
+                <Clock className="h-5 w-5" aria-hidden="true" />
                 Histórico de Comentários
               </CardTitle>
               <CardDescription>
@@ -202,13 +271,13 @@ export default function VisualizarTicket() {
               </div>
             </CardContent>
           </Card>
-        </div>
+        </section>
 
-        <div className="space-y-6">
-          <Card>
+        <aside className="space-y-6" aria-label="Painel lateral de status e informações">
+          <Card role="region" aria-labelledby="status-title">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Tag className="h-5 w-5" />
+              <CardTitle id="status-title" className="flex items-center gap-2">
+                <Tag className="h-5 w-5" aria-hidden="true" />
                 Status do Chamado
               </CardTitle>
             </CardHeader>
@@ -233,10 +302,10 @@ export default function VisualizarTicket() {
             </CardContent>
           </Card>
 
-          <Card>
+          <Card role="region" aria-labelledby="solicitante-title">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <User className="h-5 w-5" />
+              <CardTitle id="solicitante-title" className="flex items-center gap-2">
+                <User className="h-5 w-5" aria-hidden="true" />
                 Informações do Solicitante
               </CardTitle>
             </CardHeader>
@@ -263,10 +332,10 @@ export default function VisualizarTicket() {
             </CardContent>
           </Card>
 
-          <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/50">
+          <Card className="border-blue-200 bg-blue-50/50 dark:border-blue-800 dark:bg-blue-950/50" role="note" aria-label="Modo visualização">
             <CardContent className="p-4">
               <div className="flex items-start gap-3">
-                <AlertTriangle className="h-5 w-5 text-blue-600 mt-0.5" />
+                <AlertTriangle className="h-5 w-5 text-blue-600 mt-0.5" aria-hidden="true" />
                 <div>
                   <h4 className="font-medium text-blue-900 dark:text-blue-100">
                     Modo Visualização
@@ -279,8 +348,8 @@ export default function VisualizarTicket() {
               </div>
             </CardContent>
           </Card>
-        </div>
+        </aside>
       </div>
-    </div>
+    </main>
   );
 }

@@ -11,42 +11,16 @@ using Xunit;
 
 namespace TicketSystem.API.Tests;
 
-public class TicketsControllerTests : IClassFixture<CustomWebApplicationFactory>
+public class TicketsControllerTests : TestBase, IClassFixture<CustomWebApplicationFactory>
 {
     private readonly CustomWebApplicationFactory _factory;
 
-    public TicketsControllerTests(CustomWebApplicationFactory factory)
+    public TicketsControllerTests(CustomWebApplicationFactory factory) : base(factory)
     {
         _factory = factory;
     }
 
-    private async Task<string> GetAuthTokenAsync(HttpClient client)
-    {
-        // Ensure an admin user exists (seed covers this only for production DB, so we add here if missing)
-        using var scope = _factory.Services.CreateScope();
-        var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
-        if (!db.Admins.Any())
-        {
-            db.Admins.Add(new Admin
-            {
-                FirstName = "Administrador",
-                LastName = "Teste",
-                Email = "admin@test.com",
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword("admin123"),
-                IsActive = true,
-                CreatedAt = DateTime.UtcNow
-            });
-            db.SaveChanges();
-        }
-
-        var payload = new { Email = "admin@test.com", Password = "admin123" };
-        var resp = await client.PostAsJsonAsync("/api/auth/login", payload);
-        resp.EnsureSuccessStatusCode();
-        var json = await resp.Content.ReadFromJsonAsync<LoginResponseStub>();
-        return json!.Token;
-    }
-
-    private record LoginResponseStub(string Token, object User);
+    // Auth helpers moved to TestBase
 
     [Fact]
     public async Task GetTickets_Unauthorized_WithoutToken()
@@ -59,22 +33,30 @@ public class TicketsControllerTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task GetTickets_ReturnsEmptyList_WhenNoTickets()
     {
-        var client = _factory.CreateClient();
-        var token = await GetAuthTokenAsync(client);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var client = await CreateAuthorizedClientAsync();
+
+        // Guarantee empty state: remove any tickets that may have been inserted by previous tests
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            if (db.Tickets.Any())
+            {
+                db.Tickets.RemoveRange(db.Tickets);
+                db.SaveChanges();
+            }
+        }
 
         var resp = await client.GetAsync("/api/tickets");
         resp.StatusCode.Should().Be(HttpStatusCode.OK);
-        var doc = await resp.Content.ReadFromJsonAsync<dynamic>();
-        ((int)doc!.data.total).Should().Be(0);
+        var list = await resp.Content.ReadFromJsonAsync<TicketsListWrapper>();
+        list.Should().NotBeNull();
+        list!.Data.Total.Should().Be(0);
     }
 
     [Fact]
     public async Task CreateTicket_ValidPayload_CreatesAndReturns201()
     {
-        var client = _factory.CreateClient();
-        var token = await GetAuthTokenAsync(client);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var client = await CreateAuthorizedClientAsync();
 
         // Need existing department & customer
         using (var scope = _factory.Services.CreateScope())
@@ -94,18 +76,17 @@ public class TicketsControllerTests : IClassFixture<CustomWebApplicationFactory>
 
             var resp = await client.PostAsJsonAsync("/api/tickets", create);
             resp.StatusCode.Should().Be(HttpStatusCode.Created);
-            var body = await resp.Content.ReadFromJsonAsync<dynamic>();
-            ((string)body!.message).Should().Contain("Ticket criado");
-            ((string)body!.data.subject).Should().Be("Teste de criação");
+            var created = await resp.Content.ReadFromJsonAsync<TicketCreatedWrapper>();
+            created.Should().NotBeNull();
+            created!.Message.Should().Contain("Ticket criado");
+            created.Data.Subject.Should().Be("Teste de criação");
         }
     }
 
     [Fact]
     public async Task CreateTicket_MissingRequiredField_ReturnsBadRequest()
     {
-        var client = _factory.CreateClient();
-        var token = await GetAuthTokenAsync(client);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var client = await CreateAuthorizedClientAsync();
 
         var invalid = new { description = "Sem subject", priority = 1, departmentId = 1 };
         var resp = await client.PostAsJsonAsync("/api/tickets", invalid);
@@ -133,19 +114,60 @@ public class TicketsControllerTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task GetTicket_ById_NotFound()
     {
-        var client = _factory.CreateClient();
-        var token = await GetAuthTokenAsync(client);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var client = await CreateAuthorizedClientAsync();
         var resp = await client.GetAsync("/api/tickets/98765");
+        resp.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task GetTicket_ByNumber_Success()
+    {
+        var client = await CreateAuthorizedClientAsync();
+        string createdNumber;
+        int createdId;
+        using (var scope = _factory.Services.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
+            var dept = db.Departments.First();
+            var customer = db.Customers.First();
+            var ticket = new Ticket
+            {
+                Number = Ticket.GenerateTicketNumber(),
+                Subject = "ByNumberTest",
+                Description = "Detalhe teste",
+                Priority = TicketPriority.Normal,
+                DepartmentId = dept.Id,
+                CustomerId = customer.Id,
+                Status = TicketStatus.Open,
+                CreatedAt = DateTime.UtcNow
+            };
+            db.Tickets.Add(ticket);
+            db.SaveChanges();
+            createdNumber = ticket.Number;
+            createdId = ticket.Id;
+        }
+
+        var resp = await client.GetAsync($"/api/tickets/by-number/{createdNumber}");
+        resp.StatusCode.Should().Be(HttpStatusCode.OK);
+        var json = await resp.Content.ReadFromJsonAsync<TicketDetailWrapper>();
+        json.Should().NotBeNull();
+        json!.Data.Id.Should().Be(createdId);
+        json.Data.Subject.Should().Be("ByNumberTest");
+        json.Data.Description.Should().Be("Detalhe teste");
+    }
+
+    [Fact]
+    public async Task GetTicket_ByNumber_NotFound()
+    {
+        var client = await CreateAuthorizedClientAsync();
+        var resp = await client.GetAsync("/api/tickets/by-number/NAOEXISTE123");
         resp.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
 
     [Fact]
     public async Task GetTickets_FilterByStatus_ReturnsOnlyMatching()
     {
-        var client = _factory.CreateClient();
-        var token = await GetAuthTokenAsync(client);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var client = await CreateAuthorizedClientAsync();
 
         // Seed two tickets with different status via API
         using (var scope = _factory.Services.CreateScope())
@@ -180,17 +202,15 @@ public class TicketsControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         var resp = await client.GetAsync("/api/tickets?status=" + (int)TicketStatus.Open);
         resp.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await resp.Content.ReadFromJsonAsync<dynamic>();
-        int total = json!.data.total;
-        total.Should().BeGreaterThan(0);
+        var json = await resp.Content.ReadFromJsonAsync<TicketsListWrapper>();
+        json.Should().NotBeNull();
+        json!.Data.Total.Should().BeGreaterThan(0);
     }
 
     [Fact]
     public async Task GetTickets_SearchQuery_FiltersBySubject()
     {
-        var client = _factory.CreateClient();
-        var token = await GetAuthTokenAsync(client);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var client = await CreateAuthorizedClientAsync();
 
         using (var scope = _factory.Services.CreateScope())
         {
@@ -213,17 +233,15 @@ public class TicketsControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         var resp = await client.GetAsync("/api/tickets?q=XptoEspecial");
         resp.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await resp.Content.ReadFromJsonAsync<dynamic>();
-        int total = json!.data.total;
-        total.Should().BeGreaterThan(0);
+        var json = await resp.Content.ReadFromJsonAsync<TicketsListWrapper>();
+        json.Should().NotBeNull();
+        json!.Data.Total.Should().BeGreaterThan(0);
     }
 
     [Fact]
     public async Task AssignTicket_Admin_Success()
     {
-        var client = _factory.CreateClient();
-        var token = await GetAuthTokenAsync(client);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var client = await CreateAuthorizedClientAsync();
 
         int ticketId;
         int agentId;
@@ -268,9 +286,7 @@ public class TicketsControllerTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task UpdateStatus_ValidTransition_Works()
     {
-        var client = _factory.CreateClient();
-        var token = await GetAuthTokenAsync(client);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var client = await CreateAuthorizedClientAsync();
 
         int ticketId;
         using (var scope = _factory.Services.CreateScope())
@@ -302,9 +318,7 @@ public class TicketsControllerTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task UpdateStatus_InvalidTransition_ReturnsBadRequest()
     {
-        var client = _factory.CreateClient();
-        var token = await GetAuthTokenAsync(client);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var client = await CreateAuthorizedClientAsync();
 
         int ticketId;
         using (var scope = _factory.Services.CreateScope())
@@ -336,9 +350,7 @@ public class TicketsControllerTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task GetTickets_Pagination_Works()
     {
-        var client = _factory.CreateClient();
-        var token = await GetAuthTokenAsync(client);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var client = await CreateAuthorizedClientAsync();
 
         using (var scope = _factory.Services.CreateScope())
         {
@@ -364,19 +376,16 @@ public class TicketsControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         var resp = await client.GetAsync("/api/tickets?page=2&pageSize=10");
         resp.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await resp.Content.ReadFromJsonAsync<dynamic>();
-        int page = json!.data.page;
-        int pageSize = json!.data.pageSize;
-        page.Should().Be(2);
-        pageSize.Should().Be(10);
+        var json = await resp.Content.ReadFromJsonAsync<TicketsListWrapper>();
+        json.Should().NotBeNull();
+        json!.Data.Page.Should().Be(2);
+        json!.Data.PageSize.Should().Be(10);
     }
 
     [Fact]
     public async Task GetTickets_FilterByPriority()
     {
-        var client = _factory.CreateClient();
-        var token = await GetAuthTokenAsync(client);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var client = await CreateAuthorizedClientAsync();
 
         using (var scope = _factory.Services.CreateScope())
         {
@@ -399,18 +408,15 @@ public class TicketsControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         var resp = await client.GetAsync("/api/tickets?priority=" + (int)TicketPriority.Urgent);
         resp.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await resp.Content.ReadFromJsonAsync<dynamic>();
-        int total = json!.data.total;
-        total.Should().BeGreaterThan(0);
+        var json = await resp.Content.ReadFromJsonAsync<TicketsListWrapper>();
+        json.Should().NotBeNull();
+        json!.Data.Total.Should().BeGreaterThan(0);
     }
 
     [Fact]
     public async Task GetTickets_FilterCombined_StatusAndQuery()
     {
-        var client = _factory.CreateClient();
-        var token = await GetAuthTokenAsync(client);
-        client.DefaultRequestHeaders.Authorization = new AuthenticationHeaderValue("Bearer", token);
-
+        var client = await CreateAuthorizedClientAsync();
         using (var scope = _factory.Services.CreateScope())
         {
             var db = scope.ServiceProvider.GetRequiredService<ApplicationDbContext>();
@@ -443,8 +449,55 @@ public class TicketsControllerTests : IClassFixture<CustomWebApplicationFactory>
 
         var resp = await client.GetAsync($"/api/tickets?status={(int)TicketStatus.InProgress}&q=ComboMatch");
         resp.StatusCode.Should().Be(HttpStatusCode.OK);
-        var json = await resp.Content.ReadFromJsonAsync<dynamic>();
-        int total = json!.data.total;
-        total.Should().Be(1);
+        var json = await resp.Content.ReadFromJsonAsync<TicketsListWrapper>();
+        json.Should().NotBeNull();
+        json!.Data.Total.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task CreateTicket_InvalidDepartment_ReturnsBadRequest()
+    {
+        var client = await CreateAuthorizedClientAsync();
+        var invalid = new { subject = "Teste", description = "Desc", priority = 1, departmentId = 99999, customerId = 1 };
+        var resp = await client.PostAsJsonAsync("/api/tickets", invalid);
+        resp.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    // Helper DTOs matching controller anonymous response casing (PascalCase)
+    private sealed class TicketsListWrapper
+    {
+        public string? Message { get; set; }
+        public TicketsListData Data { get; set; } = new();
+    }
+    private sealed class TicketsListData
+    {
+        public int Total { get; set; }
+        public int Page { get; set; }
+        public int PageSize { get; set; }
+        public List<object> Items { get; set; } = new();
+    }
+
+    private sealed class TicketCreatedWrapper
+    {
+        public string Message { get; set; } = string.Empty;
+        public TicketCreatedData Data { get; set; } = new();
+    }
+    private sealed class TicketCreatedData
+    {
+        public int Id { get; set; }
+        public string Subject { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
+    }
+
+    private sealed class TicketDetailWrapper
+    {
+        public string Message { get; set; } = string.Empty;
+        public TicketDetailData Data { get; set; } = new();
+    }
+    private sealed class TicketDetailData
+    {
+        public int Id { get; set; }
+        public string Subject { get; set; } = string.Empty;
+        public string Description { get; set; } = string.Empty;
     }
 }

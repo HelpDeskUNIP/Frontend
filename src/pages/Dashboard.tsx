@@ -196,7 +196,7 @@ export default function Dashboard() {
                   placeholder="Prioridade"
                   title="Selecionar prioridade"
                   options={[
-                    { value: "all", label: "Todas" },
+                    { value: "all", label: "Todas as prioridades" },
                     { value: "Crítica", label: "Crítica" },
                     { value: "Alta", label: "Alta" },
                     { value: "Média", label: "Média" },
@@ -209,7 +209,7 @@ export default function Dashboard() {
                   placeholder="Status"
                   title="Selecionar status"
                   options={[
-                    { value: "all", label: "Todos" },
+                    { value: "all", label: "Todos os status" },
                     { value: "Aberto", label: "Aberto" },
                     { value: "Em Andamento", label: "Em Andamento" },
                     { value: "Resolvido", label: "Resolvido" },

@@ -249,7 +249,7 @@ export default function PesquisarTickets() {
                   <TableBody>
                     {ticketsAtivos.map((ticket) => (
                       <TableRow key={ticket.id}>
-                        <TableCell className="font-mono text-sm">{ticket.id}</TableCell>
+                        <TableCell data-testid="ticket-id" className="font-mono text-sm">{ticket.id}</TableCell>
                         <TableCell className="max-w-[240px]">
                           <div className="truncate font-medium">{ticket.titulo}</div>
                           <div className="text-sm text-muted-foreground">
@@ -343,7 +343,7 @@ export default function PesquisarTickets() {
                   <TableBody>
                     {ticketsFinalizados.map((ticket) => (
                       <TableRow key={ticket.id}>
-                        <TableCell className="font-mono text-sm">{ticket.id}</TableCell>
+                        <TableCell data-testid="ticket-id" className="font-mono text-sm">{ticket.id}</TableCell>
                         <TableCell className="max-w-[240px]">
                           <div className="truncate font-medium">{ticket.titulo}</div>
                           <div className="text-sm text-muted-foreground">

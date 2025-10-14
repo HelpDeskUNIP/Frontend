@@ -22,7 +22,7 @@ public class HealthEndpointTests : IClassFixture<WebApplicationFactory<Program>>
     public async Task GET_health_should_return_ok()
     {
         var client = _factory.CreateClient();
-        var response = await client.GetAsync("/health");
+        var response = await client.GetAsync("/api/health");
         response.StatusCode.Should().Be(HttpStatusCode.OK);
         var body = await response.Content.ReadAsStringAsync();
         body.Should().NotBeNullOrWhiteSpace();

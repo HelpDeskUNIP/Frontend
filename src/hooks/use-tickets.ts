@@ -17,6 +17,8 @@ export interface Ticket {
   dataCriacao: string; // ISO string
   dataAtualizacao: string; // ISO string
   slaVencimento?: string; // ISO string
+  /** Indica se já temos os dados completos (detalhe) persistidos localmente */
+  hasFullDetail?: boolean;
 }
 
 const SLA_HOURS: Record<TicketPrioridade, number> = {
@@ -81,6 +83,37 @@ export function useTickets() {
     setTickets((prev) => prev.map(t => t.id === id ? { ...t, ...changes, dataAtualizacao: new Date().toISOString() } : t));
   }, [setTickets]);
 
+  /**
+   * Atualiza (ou cria) um ticket com detalhes completos vindos do backend (ex: descrição).
+   * Mantém campos já existentes e marca hasFullDetail=true para evitar refetch desnecessário.
+   */
+  const upsertTicketDetail = useCallback((detail: Partial<Ticket> & { id: string }) => {
+    setTickets(prev => {
+      const exists = prev.find(t => t.id === detail.id);
+      if (exists) {
+        return prev.map(t => t.id === detail.id ? { ...t, ...detail, hasFullDetail: true } : t);
+      }
+      // Caso não exista, cria um registro mínimo
+      const now = new Date().toISOString();
+      const newTicket: Ticket = {
+        id: detail.id,
+        titulo: detail.titulo ?? "(Sem título)",
+        descricao: detail.descricao ?? "",
+        status: (detail.status as TicketStatus) || "Aberto",
+        prioridade: (detail.prioridade as TicketPrioridade) || "Média",
+        categoria: detail.categoria ?? "",
+        usuario: detail.usuario ?? "",
+        departamento: detail.departamento ?? "",
+        dataCriacao: detail.dataCriacao ?? now,
+        dataAtualizacao: detail.dataAtualizacao ?? now,
+        slaVencimento: detail.slaVencimento,
+        subcategoria: detail.subcategoria,
+        hasFullDetail: true,
+      };
+      return [newTicket, ...prev];
+    });
+  }, [setTickets]);
+
   const removeTicket = useCallback((id: string) => {
     setTickets((prev) => prev.filter(t => t.id !== id));
   }, [setTickets]);
@@ -89,7 +122,7 @@ export function useTickets() {
     setTickets(() => items);
   }, [setTickets]);
 
-  return { tickets, addTicket, updateTicket, removeTicket, replaceAll };
+  return { tickets, addTicket, updateTicket, removeTicket, replaceAll, upsertTicketDetail };
 }
 
 function generateTicketId() {

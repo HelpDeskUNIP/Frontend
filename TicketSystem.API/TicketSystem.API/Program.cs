@@ -219,13 +219,21 @@ using (var scope = app.Services.CreateScope())
 			Console.WriteLine("Banco anterior removido.");
 		}
 
-		// Prefer migrations when available; fallback to EnsureCreated for first run without migrations
-		if (context.Database.GetMigrations().Any())
+		// Prefer migrations only when using a relational provider
+		if (context.Database.IsRelational())
 		{
-			context.Database.Migrate();
+			if (context.Database.GetMigrations().Any())
+			{
+				context.Database.Migrate();
+			}
+			else
+			{
+				context.Database.EnsureCreated();
+			}
 		}
 		else
 		{
+			// InMemory / non-relational for tests or dev fallback
 			context.Database.EnsureCreated();
 		}
 		Console.WriteLine("Banco de dados e tabelas OK.");
@@ -256,14 +264,18 @@ using (var scope = app.Services.CreateScope())
 			Console.WriteLine("Admin criado (admin@ticketsystem.com / admin123).");
 		}
 
-		var seedPath = Path.Combine(app.Environment.ContentRootPath, "seed-data.sql");
-		if (File.Exists(seedPath))
+		// Execute raw SQL seed file only for relational providers to avoid noisy errors in tests (InMemory)
+		if (context.Database.IsRelational())
 		{
-			var sql = File.ReadAllText(seedPath);
-			if (!string.IsNullOrWhiteSpace(sql))
+			var seedPath = Path.Combine(app.Environment.ContentRootPath, "seed-data.sql");
+			if (File.Exists(seedPath))
 			{
-				context.Database.ExecuteSqlRaw(sql);
-				Console.WriteLine("seed-data.sql executado.");
+				var sql = File.ReadAllText(seedPath);
+				if (!string.IsNullOrWhiteSpace(sql))
+				{
+					context.Database.ExecuteSqlRaw(sql);
+					Console.WriteLine("seed-data.sql executado.");
+				}
 			}
 		}
 	}

@@ -143,19 +143,39 @@ export async function createTicket(input: CreateTicketInput): Promise<StoreTicke
     return mapApiTicketToStore(summary);
 }
 
-export async function getTicketByNumber(number: string): Promise<StoreTicket | null> {
-    // First, search by number to get the internal Id
-    const list = await api.get<ApiListResponse<ApiTicketSummary>>("/tickets", {
-        params: { q: number, page: 1, pageSize: 1 },
-    });
-    const item = list.data.data.items?.[0];
-    if (!item || item.number !== number) return null;
-    // Fetch detail by numeric Id
-    const detail = await api.get<{ message?: string; data: ApiTicketDetail }>(`/tickets/${item.id}`);
-    const d = detail.data.data;
-    const mapped = mapApiTicketToStore(d);
-    mapped.descricao = d.description ?? "";
-    return mapped;
+export async function getTicketByNumber(number: string, persist?: (ticket: StoreTicket) => void): Promise<StoreTicket | null> {
+    // Nova rota otimizada: /tickets/by-number/{number}
+    try {
+        const detail = await api.get<{ message?: string; data: ApiTicketDetail }>(`/tickets/by-number/${number}`);
+        const d = detail.data.data;
+        const mapped = mapApiTicketToStore(d as ApiTicketSummary); // Detail herda de summary
+        mapped.descricao = d.description ?? "";
+        (mapped as any).hasFullDetail = true;
+        persist?.(mapped);
+        return mapped;
+    } catch (err: any) {
+        // Se não encontrado, não faz sentido tentar fallback; apenas retorna null
+        if (err?.response?.status === 404) {
+            return null;
+        }
+        // Em outros erros (ex: backend antigo sem rota), faz fallback para busca
+        try {
+            const list = await api.get<ApiListResponse<ApiTicketSummary>>("/tickets", {
+                params: { q: number, page: 1, pageSize: 1 },
+            });
+            const item = list.data.data.items?.[0];
+            if (!item || item.number !== number) return null;
+            const legacyDetail = await api.get<{ message?: string; data: ApiTicketDetail }>(`/tickets/${item.id}`);
+            const d = legacyDetail.data.data;
+            const mapped = mapApiTicketToStore(d as ApiTicketSummary);
+            mapped.descricao = d.description ?? "";
+            (mapped as any).hasFullDetail = true;
+            persist?.(mapped);
+            return mapped;
+        } catch {
+            return null;
+        }
+    }
 }
 
 export async function updateTicketStatusByNumber(number: string, newStatusPt: TicketStatus): Promise<void> {

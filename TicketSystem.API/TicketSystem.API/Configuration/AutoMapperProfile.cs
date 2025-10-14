@@ -15,12 +15,14 @@ namespace TicketSystem.API.Configuration
             // Mapeamento de User para UserDto
             CreateMap<User, UserDto>()
                 .ForMember(dest => dest.FullName, opt => opt.MapFrom(src => src.FullName))
+                // Campos específicos de Agent só serão preenchidos no mapa de Agent
+                .ForMember(dest => dest.Specialization, opt => opt.Ignore())
+                .ForMember(dest => dest.Level, opt => opt.Ignore())
+                .ForMember(dest => dest.IsAvailable, opt => opt.Ignore())
                 .IncludeAllDerived();
 
-            // Mapeamentos específicos para cada tipo de usuário
             CreateMap<Customer, UserDto>()
                 .IncludeBase<User, UserDto>();
-
 
             CreateMap<Agent, UserDto>()
                 .IncludeBase<User, UserDto>()
@@ -31,12 +33,15 @@ namespace TicketSystem.API.Configuration
             CreateMap<Admin, UserDto>()
                 .IncludeBase<User, UserDto>();
 
-            // Mapeamento reverso se necessário
+            // Reverse mapping: ignorar propriedades de navegação e somente leitura
             CreateMap<UserDto, User>()
                 .ForMember(dest => dest.Id, opt => opt.Ignore())
                 .ForMember(dest => dest.PasswordHash, opt => opt.Ignore())
                 .ForMember(dest => dest.CreatedAt, opt => opt.Ignore())
-                .ForMember(dest => dest.UpdatedAt, opt => opt.Ignore());
+                .ForMember(dest => dest.UpdatedAt, opt => opt.Ignore())
+                .ForMember(dest => dest.Tickets, opt => opt.Ignore())
+                .ForMember(dest => dest.Messages, opt => opt.Ignore())
+                .ForMember(dest => dest.IsDeleted, opt => opt.Ignore());
 
             // Ticket -> DTOs
             CreateMap<Ticket, TicketSummaryDto>()
