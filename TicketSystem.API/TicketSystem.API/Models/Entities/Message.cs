@@ -36,8 +36,7 @@ namespace TicketSystem.API.Models.Entities
         public DateTime? EditedAt { get; set; }
         public string? OriginalContent { get; set; }
 
-        // Relacionamentos
-        public virtual ICollection<Attachment> Attachments { get; set; } = new List<Attachment>();
+        // Uploads desabilitados: anexos removidos
 
         // Propriedades calculadas
         [NotMapped]

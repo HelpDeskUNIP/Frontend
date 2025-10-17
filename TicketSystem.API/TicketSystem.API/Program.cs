@@ -23,6 +23,11 @@ Log.Logger = new LoggerConfiguration()
 	.CreateLogger();
 builder.Host.UseSerilog(Log.Logger);
 
+// Load optional local appsettings overrides (for secrets like Gemini API key)
+builder.Configuration
+	.AddJsonFile("appsettings.Local.json", optional: true, reloadOnChange: true)
+	.AddJsonFile($"appsettings.{builder.Environment.EnvironmentName}.Local.json", optional: true, reloadOnChange: true);
+
 // DbContext
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
 {
@@ -80,6 +85,9 @@ builder.Services.AddAuthorization();
 
 // DI
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IAiService, AiService>();
+builder.Services.AddHttpClient();
+builder.Services.AddHttpClient();
 
 // CORS (configurable)
 var allowedOrigins = builder.Configuration.GetSection("Cors:AllowedOrigins").Get<string[]>() ?? Array.Empty<string>();

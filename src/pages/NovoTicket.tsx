@@ -14,6 +14,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { listDepartments } from "@/lib/departments";
 import { createTicket } from "@/lib/tickets";
 import { useAuth } from "@/hooks/use-auth-hook";
+import { analyzeTicket } from "@/lib/ai";
 
 const categories = [
   { value: "hardware", label: "Hardware", description: "Problemas com equipamentos físicos" },
@@ -55,12 +56,7 @@ const priorities = [
   }
 ];
 
-const mockSuggestions = [
-  "Verifique se o cabo de alimentação está conectado corretamente",
-  "Reinicie o equipamento e tente novamente",
-  "Verifique se há atualizações pendentes do sistema",
-  "Confirme se o usuário possui as permissões necessárias"
-];
+// mockSuggestions removed in favor of AI suggestions
 
 type Dept = { id: number; name: string };
 
@@ -86,6 +82,14 @@ export default function NovoTicket() {
   const { user: authUser } = useAuth();
   const [suggestions, setSuggestions] = useState<string[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiConfidence, setAiConfidence] = useState<number | null>(null);
+  const [aiRationale, setAiRationale] = useState<string | null>(null);
+  const [aiSource, setAiSource] = useState<string | null>(null);
+  const [aiNextAction, setAiNextAction] = useState<string | null>(null);
+  const [aiQuestions, setAiQuestions] = useState<string[]>([]);
+  const [doneActions, setDoneActions] = useState<string[]>([]);
+  const [rejectedActions, setRejectedActions] = useState<string[]>([]);
 
   // Auto-save draft - Heurística 3: Controle e liberdade do usuário
   useEffect(() => {
@@ -164,16 +168,59 @@ export default function NovoTicket() {
     return Object.keys(newErrors).length === 0;
   };
 
+  // Manual AI analyze triggered by button
+  const analyzeNow = async () => {
+    const title = formData.title.trim();
+    const desc = formData.description.trim();
+    if (title.length < 5 || desc.length < 20) {
+      toast({ title: "Texto curto", description: "Título e descrição precisam ser mais detalhados.", variant: "destructive" });
+      return;
+    }
+    try {
+      setAiLoading(true);
+      const res = await analyzeTicket({
+        title,
+        description: desc,
+        doneActions,
+        rejectedActions,
+        priorSuggestions: suggestions,
+      });
+      setSuggestions(res.suggestions || []);
+      setShowSuggestions((res.suggestions || []).length > 0);
+      setAiConfidence(res.confidence ?? null);
+      setAiRationale(res.rationale ?? null);
+      setAiSource(res.source ?? null);
+      setAiNextAction(res.nextAction ?? null);
+      setAiQuestions(res.followUpQuestions ?? []);
+      if (res.predictedDepartmentId && (res.confidence ?? 0) >= 0.7) {
+        const id = Number(res.predictedDepartmentId);
+        setDepartmentId(id);
+        const name = departments.find(d => d.id === id)?.name ?? res.predictedDepartmentName ?? "";
+        setFormData(prev => ({ ...prev, department: name }));
+      }
+      if (res.priorityHint && !formData.priority) {
+        setFormData(prev => ({ ...prev, priority: res.priorityHint! }));
+      }
+    } catch (e) {
+      toast({ title: "Falha ao analisar", description: "Tente novamente em instantes.", variant: "destructive" });
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const markDone = (s: string) => {
+    if (!doneActions.includes(s)) setDoneActions(prev => [...prev, s]);
+    // Iterate to get next steps
+    void analyzeNow();
+  };
+  const markRejected = (s: string) => {
+    if (!rejectedActions.includes(s)) setRejectedActions(prev => [...prev, s]);
+    // Iterate to avoid repetitions
+    void analyzeNow();
+  };
+
   const handleDescriptionChange = (value: string) => {
     setFormData({ ...formData, description: value });
-
-    // Simulate AI suggestions based on description
-    if (value.length > 20) {
-      setSuggestions(mockSuggestions);
-      setShowSuggestions(true);
-    } else {
-      setShowSuggestions(false);
-    }
   };
 
   const priorityToApi: Record<string, "Urgent" | "High" | "Normal" | "Low"> = {
@@ -430,7 +477,7 @@ export default function NovoTicket() {
                         value={formData.category}
                         onValueChange={(value) => setFormData({ ...formData, category: value })}
                       >
-                        <SelectTrigger id="category" className={`text-sm ${errors.category ? 'border-destructive' : ''}`}>
+                        <SelectTrigger id="category" className={`text-sm justify-between text-left ${errors.category ? 'border-destructive' : ''}`}>
                           <SelectValue placeholder="Selecione a categoria" />
                         </SelectTrigger>
                         <SelectContent>
@@ -470,7 +517,7 @@ export default function NovoTicket() {
                         value={formData.priority}
                         onValueChange={(value) => setFormData({ ...formData, priority: value })}
                       >
-                        <SelectTrigger id="priority" className={`text-sm ${errors.priority ? 'border-destructive' : ''}`}>
+                        <SelectTrigger id="priority" className={`text-sm justify-between text-left ${errors.priority ? 'border-destructive' : ''}`}>
                           <SelectValue placeholder="Selecione a prioridade" />
                         </SelectTrigger>
                         <SelectContent>
@@ -529,9 +576,21 @@ export default function NovoTicket() {
                     {errors.description && (
                       <p className="text-sm text-destructive">{errors.description}</p>
                     )}
-                    <p className="text-xs text-muted-foreground">
-                      {formData.description.length}/500 caracteres
-                    </p>
+                    <div className="flex items-center justify-between">
+                      <p className="text-xs text-muted-foreground">
+                        {formData.description.length}/500 caracteres
+                      </p>
+                      <Button type="button" variant="secondary" size="sm" onClick={analyzeNow} disabled={aiLoading}>
+                        {aiLoading ? (
+                          <>
+                            <div className="w-3 h-3 border-2 border-muted-foreground/50 border-t-transparent rounded-full animate-spin mr-2" />
+                            Analisando...
+                          </>
+                        ) : (
+                          "Analisar com IA"
+                        )}
+                      </Button>
+                    </div>
                   </div>
 
                   {/* Contact Information */}
@@ -593,20 +652,58 @@ export default function NovoTicket() {
                     <Lightbulb className="h-5 w-5 text-warning" />
                     Sugestões IA
                   </CardTitle>
-                  <CardDescription>
-                    Possíveis soluções baseadas na sua descrição
+                  <CardDescription className="flex items-center gap-2">
+                    {aiLoading && (
+                      <>
+                        <div className="w-3 h-3 border-2 border-muted-foreground/50 border-t-transparent rounded-full animate-spin" />
+                        Analisando...
+                      </>
+                    )}
+                    {!aiLoading && (
+                      <>
+                        Possíveis soluções baseadas na sua descrição
+                        {aiConfidence !== null && (
+                          <span className="text-xs text-muted-foreground">Confiança: {Math.round(aiConfidence * 100)}%</span>
+                        )}
+                        {aiSource && aiSource !== 'heuristic' && (
+                          <span className="text-xs text-muted-foreground">Fonte: {aiSource}</span>
+                        )}
+
+                      </>
+                    )}
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-3">
                     {suggestions.map((suggestion, index) => (
-                      <div
-                        key={index}
-                        className="p-3 bg-muted/50 rounded-lg border-l-4 border-primary text-sm"
-                      >
-                        {suggestion}
+                      <div key={index} className="p-3 bg-muted/50 rounded-lg border border-muted flex items-start justify-between gap-3">
+                        <span className="text-sm">{suggestion}</span>
+                        <div className="flex items-center gap-2">
+                          <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => markDone(suggestion)} title="Marcar como feito">
+                            <CheckCircle className="h-4 w-4 text-green-600" />
+                          </Button>
+                          <Button variant="outline" size="sm" className="h-7 px-2 text-xs" onClick={() => markRejected(suggestion)} title="Não ajudou">
+                            <X className="h-4 w-4 text-red-600" />
+                          </Button>
+                        </div>
                       </div>
                     ))}
+                    {aiNextAction && (
+                      <div className="text-sm text-muted-foreground">
+                        Próximo passo sugerido: <span className="font-medium">{aiNextAction}</span>
+                      </div>
+                    )}
+                    {aiQuestions.length > 0 && (
+                      <div className="mt-2 space-y-1">
+                        <div className="text-xs font-medium">Perguntas de diagnóstico:</div>
+                        <ul className="list-disc list-inside text-xs text-muted-foreground">
+                          {aiQuestions.map((q, i) => (<li key={i}>{q}</li>))}
+                        </ul>
+                      </div>
+                    )}
+                    {aiRationale && (
+                      <p className="text-xs text-muted-foreground">{aiRationale}</p>
+                    )}
                   </div>
                 </CardContent>
               </Card>

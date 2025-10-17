@@ -62,7 +62,7 @@ namespace TicketSystem.API.Models.Entities
 
         // Relacionamentos de coleção
         public virtual ICollection<Message> Messages { get; set; } = new List<Message>();
-        public virtual ICollection<Attachment> Attachments { get; set; } = new List<Attachment>();
+        // Uploads desabilitados: anexos removidos
 
         [NotMapped]
         public bool IsOverdue => SlaHours.HasValue &&

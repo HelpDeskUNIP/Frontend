@@ -25,7 +25,6 @@ namespace TicketSystem.API.Data
         public DbSet<Ticket> Tickets { get; set; }
         public DbSet<Message> Messages { get; set; }
         public DbSet<Department> Departments { get; set; }
-        public DbSet<Attachment> Attachments { get; set; }
 
         /// <summary>
         /// Configuração do modelo de dados
@@ -42,7 +41,7 @@ namespace TicketSystem.API.Data
             ConfigureTicketEntity(modelBuilder);
             ConfigureMessageEntity(modelBuilder);
             ConfigureDepartmentEntity(modelBuilder);
-            ConfigureAttachmentEntity(modelBuilder);
+            // Attachments disabled: no file uploads in this project
 
             // Configurar índices para performance
             ConfigureIndexes(modelBuilder);
@@ -145,30 +144,7 @@ namespace TicketSystem.API.Data
             });
         }
 
-        private void ConfigureAttachmentEntity(ModelBuilder modelBuilder)
-        {
-            modelBuilder.Entity<Attachment>(entity =>
-            {
-                entity.Property(a => a.FileName).HasMaxLength(255).IsRequired();
-                entity.Property(a => a.FilePath).HasMaxLength(255).IsRequired();
-                entity.Property(a => a.ContentType).HasMaxLength(100).IsRequired();
-
-                entity.HasOne(a => a.Ticket)
-                    .WithMany(t => t.Attachments)
-                    .HasForeignKey(a => a.TicketId)
-                    .OnDelete(DeleteBehavior.Restrict);
-
-                entity.HasOne(a => a.Message)
-                    .WithMany(m => m.Attachments)
-                    .HasForeignKey(a => a.MessageId)
-                    .OnDelete(DeleteBehavior.Restrict);
-
-                entity.HasOne(a => a.UploadedBy)
-                    .WithMany()
-                    .HasForeignKey(a => a.UploadedById)
-                    .OnDelete(DeleteBehavior.Restrict);
-            });
-        }
+        // Removed ConfigureAttachmentEntity
 
         private void ConfigureIndexes(ModelBuilder modelBuilder)
         {
@@ -194,7 +170,7 @@ namespace TicketSystem.API.Data
             modelBuilder.Entity<Ticket>().HasQueryFilter(t => !t.IsDeleted);
             modelBuilder.Entity<Message>().HasQueryFilter(m => !m.IsDeleted);
             modelBuilder.Entity<Department>().HasQueryFilter(d => !d.IsDeleted);
-            modelBuilder.Entity<Attachment>().HasQueryFilter(a => !a.IsDeleted);
+            // Attachments removed
         }
     }
 }

@@ -50,6 +50,57 @@ BEGIN
         (N'Comercial', N'Dúvidas sobre produtos e vendas', N'#45B7D1', 1, GETUTCDATE(), 0);
 END
 
+-- Extras recomendados
+IF NOT EXISTS (SELECT 1
+FROM Departments
+WHERE Name = N'Infraestrutura/Redes')
+BEGIN
+    INSERT INTO Departments
+        (Name, Description, Color, IsActive, CreatedAt, IsDeleted)
+    VALUES
+        (N'Infraestrutura/Redes', N'Redes, VPN, DNS, servidores', N'#6C5CE7', 1, GETUTCDATE(), 0);
+END
+
+IF NOT EXISTS (SELECT 1
+FROM Departments
+WHERE Name = N'Sistemas/ERP')
+BEGIN
+    INSERT INTO Departments
+        (Name, Description, Color, IsActive, CreatedAt, IsDeleted)
+    VALUES
+        (N'Sistemas/ERP', N'ERP, integrações, customizações', N'#A29BFE', 1, GETUTCDATE(), 0);
+END
+
+IF NOT EXISTS (SELECT 1
+FROM Departments
+WHERE Name = N'RH')
+BEGIN
+    INSERT INTO Departments
+        (Name, Description, Color, IsActive, CreatedAt, IsDeleted)
+    VALUES
+        (N'RH', N'Admissão, desligamento, folha e benefícios', N'#55EFC4', 1, GETUTCDATE(), 0);
+END
+
+IF NOT EXISTS (SELECT 1
+FROM Departments
+WHERE Name = N'Operações')
+BEGIN
+    INSERT INTO Departments
+        (Name, Description, Color, IsActive, CreatedAt, IsDeleted)
+    VALUES
+        (N'Operações', N'PCP, logística, produção', N'#00CEC9', 1, GETUTCDATE(), 0);
+END
+
+IF NOT EXISTS (SELECT 1
+FROM Departments
+WHERE Name = N'Jurídico')
+BEGIN
+    INSERT INTO Departments
+        (Name, Description, Color, IsActive, CreatedAt, IsDeleted)
+    VALUES
+        (N'Jurídico', N'Contratos e compliance', N'#FAB1A0', 1, GETUTCDATE(), 0);
+END
+
 -- Inserir Admin (senha: admin123) - idempotente (checa por email)
 IF NOT EXISTS (SELECT 1
 FROM Users

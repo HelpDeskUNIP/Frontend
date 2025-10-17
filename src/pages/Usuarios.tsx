@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -10,65 +10,16 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { UserPlus, Search, Edit, Trash2, Shield, User, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
+import { createUser, listUsers, ApiUser } from "@/lib/users";
 
-interface Usuario {
-  id: string;
+type UiUsuario = {
+  id: number;
   nome: string;
   email: string;
-  departamento: string;
-  cargo: string;
   status: "Ativo" | "Inativo";
   tipo: "Admin" | "Usuário" | "Suporte";
-  dataCriacao: string;
-  ultimoAcesso: string;
-}
-
-const mockUsuarios: Usuario[] = [
-  {
-    id: "USR-001",
-    nome: "João Silva",
-    email: "joao.silva@empresa.com",
-    departamento: "TI",
-    cargo: "Analista de Sistemas",
-    status: "Ativo",
-    tipo: "Admin",
-    dataCriacao: "2024-01-01",
-    ultimoAcesso: "2024-01-16"
-  },
-  {
-    id: "USR-002",
-    nome: "Maria Santos",
-    email: "maria.santos@empresa.com",
-    departamento: "Financeiro",
-    cargo: "Contadora",
-    status: "Ativo",
-    tipo: "Usuário",
-    dataCriacao: "2024-01-05",
-    ultimoAcesso: "2024-01-15"
-  },
-  {
-    id: "USR-003",
-    nome: "Carlos Oliveira",
-    email: "carlos.oliveira@empresa.com",
-    departamento: "RH",
-    cargo: "Coordenador de RH",
-    status: "Ativo",
-    tipo: "Usuário",
-    dataCriacao: "2024-01-10",
-    ultimoAcesso: "2024-01-14"
-  },
-  {
-    id: "USR-004",
-    nome: "Ana Costa",
-    email: "ana.costa@empresa.com",
-    departamento: "TI",
-    cargo: "Suporte Técnico",
-    status: "Inativo",
-    tipo: "Suporte",
-    dataCriacao: "2024-01-03",
-    ultimoAcesso: "2024-01-10"
-  }
-];
+  ultimoAcesso: string | "-";
+};
 
 const statusColors = {
   "Ativo": "bg-green-100 text-green-800 dark:bg-green-900/20 dark:text-green-400",
@@ -82,112 +33,139 @@ const tipoColors = {
 };
 
 export default function Usuarios() {
-  const [usuarios, setUsuarios] = useState<Usuario[]>(mockUsuarios);
+  const [usuarios, setUsuarios] = useState<UiUsuario[]>([]);
+  const [total, setTotal] = useState(0);
   const [searchTerm, setSearchTerm] = useState("");
   const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [editingUser, setEditingUser] = useState<Usuario | null>(null);
+  const [editingUser, setEditingUser] = useState<UiUsuario | null>(null);
+  const [loading, setLoading] = useState(false);
   const [formData, setFormData] = useState({
-    nome: "",
+    firstName: "",
+    lastName: "",
     email: "",
-    departamento: "",
-    cargo: "",
+    password: "",
     status: "Ativo" as "Ativo" | "Inativo",
-    tipo: "Usuário" as "Admin" | "Usuário" | "Suporte"
+    tipo: "Usuário" as "Admin" | "Usuário" | "Suporte",
+    // Campos condicionais
+    department: "",
+    specialization: "",
+    level: 1,
+    isAvailable: true,
   });
 
-  const filteredUsuarios = usuarios.filter(usuario =>
-    usuario.nome.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    usuario.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    usuario.departamento.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    usuario.id.toLowerCase().includes(searchTerm.toLowerCase())
-  );
-
-  const handleCreateUser = () => {
-    const newUser: Usuario = {
-      id: `USR-${String(usuarios.length + 1).padStart(3, '0')}`,
-      nome: formData.nome,
-      email: formData.email,
-      departamento: formData.departamento,
-      cargo: formData.cargo,
-      status: formData.status,
-      tipo: formData.tipo,
-      dataCriacao: new Date().toISOString().split('T')[0],
-      ultimoAcesso: "-"
+  function mapApiUser(u: ApiUser): UiUsuario {
+    const tipo: UiUsuario["tipo"] = u.userType === "Admin" ? "Admin" : u.userType === "Agent" ? "Suporte" : "Usuário";
+    return {
+      id: u.id,
+      nome: u.fullName ?? `${u.firstName} ${u.lastName}`,
+      email: u.email,
+      status: u.isActive ? "Ativo" : "Inativo",
+      tipo,
+      ultimoAcesso: u.lastLoginAt ?? "-",
     };
+  }
 
-    setUsuarios([...usuarios, newUser]);
-    setFormData({
-      nome: "",
-      email: "",
-      departamento: "",
-      cargo: "",
-      status: "Ativo",
-      tipo: "Usuário"
-    });
-    setIsDialogOpen(false);
-    
-    toast.success(`Usuário ${formData.nome} foi criado com sucesso.`);
-  };
+  async function fetchUsers(q?: string) {
+    try {
+      setLoading(true);
+      const res = await listUsers({ page: 1, pageSize: 50, q });
+      setUsuarios(res.items.map(mapApiUser));
+      setTotal(res.total);
+    } catch (err: any) {
+      toast.error("Falha ao carregar usuários");
+    } finally {
+      setLoading(false);
+    }
+  }
 
-  const handleEditUser = (user: Usuario) => {
-    setEditingUser(user);
-    setFormData({
-      nome: user.nome,
-      email: user.email,
-      departamento: user.departamento,
-      cargo: user.cargo,
-      status: user.status,
-      tipo: user.tipo
-    });
-    setIsDialogOpen(true);
-  };
+  useEffect(() => {
+    fetchUsers();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
-  const handleUpdateUser = () => {
-    if (!editingUser) return;
+  // Debounce busca no servidor
+  useEffect(() => {
+    const h = setTimeout(() => {
+      const q = searchTerm.trim();
+      fetchUsers(q.length > 0 ? q : undefined);
+    }, 400);
+    return () => clearTimeout(h);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm]);
 
-    const updatedUsers = usuarios.map(user =>
-      user.id === editingUser.id
-        ? {
-            ...user,
-            nome: formData.nome,
-            email: formData.email,
-            departamento: formData.departamento,
-            cargo: formData.cargo,
-            status: formData.status,
-            tipo: formData.tipo
-          }
-        : user
+  const filteredUsuarios = useMemo(() => {
+    const q = searchTerm.trim().toLowerCase();
+    if (!q) return usuarios;
+    return usuarios.filter((u) =>
+      u.nome.toLowerCase().includes(q) ||
+      u.email.toLowerCase().includes(q) ||
+      String(u.id).toLowerCase().includes(q)
     );
+  }, [usuarios, searchTerm]);
 
-    setUsuarios(updatedUsers);
-    setEditingUser(null);
-    setFormData({
-      nome: "",
-      email: "",
-      departamento: "",
-      cargo: "",
-      status: "Ativo",
-      tipo: "Usuário"
-    });
-    setIsDialogOpen(false);
-    
-    toast.success(`Usuário ${formData.nome} foi atualizado com sucesso.`);
+  const handleCreateUser = async () => {
+    try {
+      const userType = formData.tipo === "Admin" ? "Admin" : formData.tipo === "Suporte" ? "Agent" : "Customer";
+      const payload: any = {
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        password: formData.password,
+        userType,
+        isActive: formData.status === "Ativo",
+      };
+      if (userType === "Customer") payload.department = formData.department || undefined;
+      if (userType === "Agent") {
+        payload.specialization = formData.specialization || undefined;
+        payload.level = formData.level || 1;
+        payload.isAvailable = formData.isAvailable;
+      }
+
+      const created = await createUser(payload);
+      setUsuarios((prev) => [...prev, mapApiUser(created)]);
+      setIsDialogOpen(false);
+      setFormData({
+        firstName: "",
+        lastName: "",
+        email: "",
+        password: "",
+        status: "Ativo",
+        tipo: "Usuário",
+        department: "",
+        specialization: "",
+        level: 1,
+        isAvailable: true,
+      });
+      toast.success(`Usuário ${created.fullName} foi criado com sucesso.`);
+    } catch (err: any) {
+      const msg = err?.response?.data?.message || "Falha ao criar usuário";
+      toast.error(msg);
+    }
   };
 
-  const handleDeleteUser = (id: string, userName: string) => {
-    setUsuarios(usuarios.filter(user => user.id !== id));
-    toast.success(`Usuário ${userName} foi removido com sucesso.`);
+  const handleEditUser = (user: UiUsuario) => {
+    setEditingUser(user);
+    setIsDialogOpen(true);
+    toast.info("Edição de usuário será adicionada em breve.");
+  };
+
+  const handleDeleteUser = (id: number, userName: string) => {
+    toast.info("Remoção/desativação será adicionada em breve.");
   };
 
   const resetForm = () => {
     setEditingUser(null);
     setFormData({
-      nome: "",
+      firstName: "",
+      lastName: "",
       email: "",
-      departamento: "",
-      cargo: "",
+      password: "",
       status: "Ativo",
-      tipo: "Usuário"
+      tipo: "Usuário",
+      department: "",
+      specialization: "",
+      level: 1,
+      isAvailable: true,
     });
   };
 
@@ -217,22 +195,21 @@ export default function Usuarios() {
                 {editingUser ? "Editar Usuário" : "Criar Novo Usuário"}
               </DialogTitle>
               <DialogDescription>
-                {editingUser 
-                  ? "Atualize as informações do usuário abaixo." 
-                  : "Preencha as informações para criar um novo usuário."
-                }
+                {editingUser
+                  ? "Atualize as informações do usuário abaixo."
+                  : "Preencha as informações para criar um novo usuário."}
               </DialogDescription>
             </DialogHeader>
-            
+
             <div className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label htmlFor="nome">Nome Completo</Label>
-                <Input
-                  id="nome"
-                  value={formData.nome}
-                  onChange={(e) => setFormData({...formData, nome: e.target.value})}
-                  placeholder="Digite o nome completo"
-                />
+                <Label htmlFor="firstName">Nome</Label>
+                <Input id="firstName" value={formData.firstName} onChange={(e) => setFormData({ ...formData, firstName: e.target.value })} placeholder="Digite o nome" />
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="lastName">Sobrenome</Label>
+                <Input id="lastName" value={formData.lastName} onChange={(e) => setFormData({ ...formData, lastName: e.target.value })} placeholder="Digite o sobrenome" />
               </div>
 
               <div className="space-y-2">
@@ -241,49 +218,68 @@ export default function Usuarios() {
                   id="email"
                   type="email"
                   value={formData.email}
-                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   placeholder="Digite o email"
                 />
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="departamento">Departamento</Label>
-                <Input
-                  id="departamento"
-                  value={formData.departamento}
-                  onChange={(e) => setFormData({...formData, departamento: e.target.value})}
-                  placeholder="Digite o departamento"
-                />
-              </div>
+              {!editingUser && (
+                <div className="space-y-2">
+                  <Label htmlFor="password">Senha</Label>
+                  <Input id="password" type="password" value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} placeholder="Defina uma senha" />
+                </div>
+              )}
 
               <div className="space-y-2">
-                <Label htmlFor="cargo">Cargo</Label>
-                <Input
-                  id="cargo"
-                  value={formData.cargo}
-                  onChange={(e) => setFormData({...formData, cargo: e.target.value})}
-                  placeholder="Digite o cargo"
-                />
+                <Label>Tipo</Label>
+                <Select value={formData.tipo} onValueChange={(value: "Admin" | "Usuário" | "Suporte") => setFormData({ ...formData, tipo: value })}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Usuário">Usuário</SelectItem>
+                    <SelectItem value="Suporte">Suporte</SelectItem>
+                    <SelectItem value="Admin">Admin</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
+
+              {formData.tipo === "Usuário" && (
+                <div className="space-y-2">
+                  <Label htmlFor="department">Departamento</Label>
+                  <Input id="department" value={formData.department} onChange={(e) => setFormData({ ...formData, department: e.target.value })} placeholder="Digite o departamento" />
+                </div>
+              )}
+
+              {formData.tipo === "Suporte" && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="specialization">Especialização</Label>
+                    <Input id="specialization" value={formData.specialization} onChange={(e) => setFormData({ ...formData, specialization: e.target.value })} placeholder="Ex: Redes" />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="level">Nível</Label>
+                    <Input id="level" type="number" min={1} max={5} value={formData.level} onChange={(e) => setFormData({ ...formData, level: Number(e.target.value) })} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Disponível</Label>
+                    <Select value={formData.isAvailable ? "true" : "false"} onValueChange={(v: "true" | "false") => setFormData({ ...formData, isAvailable: v === "true" })}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="true">Sim</SelectItem>
+                        <SelectItem value="false">Não</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label>Tipo</Label>
-                  <Select value={formData.tipo} onValueChange={(value: "Admin" | "Usuário" | "Suporte") => setFormData({...formData, tipo: value})}>
-                    <SelectTrigger>
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="Usuário">Usuário</SelectItem>
-                      <SelectItem value="Suporte">Suporte</SelectItem>
-                      <SelectItem value="Admin">Admin</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div className="space-y-2">
                   <Label>Status</Label>
-                  <Select value={formData.status} onValueChange={(value: "Ativo" | "Inativo") => setFormData({...formData, status: value})}>
+                  <Select value={formData.status} onValueChange={(value: "Ativo" | "Inativo") => setFormData({ ...formData, status: value })}>
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
@@ -300,7 +296,7 @@ export default function Usuarios() {
               <Button variant="outline" onClick={() => setIsDialogOpen(false)}>
                 Cancelar
               </Button>
-              <Button onClick={editingUser ? handleUpdateUser : handleCreateUser}>
+              <Button onClick={editingUser ? () => toast.info("Atualização em breve") : handleCreateUser}>
                 {editingUser ? "Atualizar" : "Criar"}
               </Button>
             </div>
@@ -315,7 +311,7 @@ export default function Usuarios() {
             Lista de Usuários
           </CardTitle>
           <CardDescription>
-            Total de {usuarios.length} usuário(s) cadastrado(s)
+            {loading ? "Carregando..." : `Total de ${total} usuário(s) cadastrado(s)`}
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -335,8 +331,6 @@ export default function Usuarios() {
                 <TableHead>ID</TableHead>
                 <TableHead>Nome</TableHead>
                 <TableHead>Email</TableHead>
-                <TableHead>Departamento</TableHead>
-                <TableHead>Cargo</TableHead>
                 <TableHead>Tipo</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Último Acesso</TableHead>
@@ -356,8 +350,6 @@ export default function Usuarios() {
                     </div>
                   </TableCell>
                   <TableCell>{usuario.email}</TableCell>
-                  <TableCell>{usuario.departamento}</TableCell>
-                  <TableCell>{usuario.cargo}</TableCell>
                   <TableCell>
                     <Badge variant="secondary" className={tipoColors[usuario.tipo]}>
                       <Shield className="h-3 w-3 mr-1" />
@@ -370,10 +362,9 @@ export default function Usuarios() {
                     </Badge>
                   </TableCell>
                   <TableCell>
-                    {usuario.ultimoAcesso !== "-" 
+                    {usuario.ultimoAcesso !== "-" && typeof usuario.ultimoAcesso === "string"
                       ? new Date(usuario.ultimoAcesso).toLocaleDateString('pt-BR')
-                      : "-"
-                    }
+                      : "-"}
                   </TableCell>
                   <TableCell>
                     <div className="flex gap-2">
@@ -402,13 +393,13 @@ export default function Usuarios() {
                               Confirmar exclusão
                             </AlertDialogTitle>
                             <AlertDialogDescription>
-                              Tem certeza que deseja excluir o usuário <strong>{usuario.nome}</strong>? 
+                              Tem certeza que deseja excluir o usuário <strong>{usuario.nome}</strong>?
                               Esta ação não pode ser desfeita e todos os dados relacionados serão perdidos.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
                           <AlertDialogFooter>
                             <AlertDialogCancel>Cancelar</AlertDialogCancel>
-                            <AlertDialogAction 
+                            <AlertDialogAction
                               onClick={() => handleDeleteUser(usuario.id, usuario.nome)}
                               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
                             >

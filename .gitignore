@@ -12,6 +12,31 @@ dist
 dist-ssr
 *.local
 
+# Extra env and secret patterns (prevent accidental commits)
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.env
+*.secret
+secrets/**
+
+# Certificates and private keys
+*.pem
+*.key
+*.crt
+*.cer
+*.pfx
+*.p12
+*.snk
+
+# Mobile platform service configs
+**/google-services.json
+**/GoogleService-Info.plist
+
+# Capacitor/Electron local configs
+capacitor.config.local.json
+
 # Env files (Vite/Node)
 .env
 .env.local
@@ -54,6 +79,9 @@ Thumbs.db
 # App settings (local overrides)
 **/appsettings.Local.json
 **/appsettings.*.Local.json
+**/appsettings.Production.json
+**/appsettings.*.Production.json
+**/appsettings.*.Secrets.json
 
 # Android / Capacitor (generated assets, local config, and build outputs)
 android/local.properties

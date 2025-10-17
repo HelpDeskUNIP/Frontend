@@ -29,6 +29,14 @@ function PrivateRoute({ children }: { children: React.ReactElement }) {
   return isAuthenticated ? children : <Navigate to="/login" replace />;
 }
 
+function AdminRoute({ children }: { children: React.ReactElement }) {
+  const { user, loading } = useAuth();
+  if (loading) return null;
+  const role = typeof user?.userType === "string" ? user?.userType : String(user?.userType ?? "");
+  const isAdmin = role?.toString().toLowerCase() === "admin" || role === "3";
+  return isAdmin ? children : <Navigate to="/dashboard" replace />;
+}
+
 const App = () => (
   <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
     <QueryClientProvider client={queryClient}>
@@ -98,9 +106,11 @@ const App = () => (
               } />
               <Route path="/usuarios" element={
                 <PrivateRoute>
-                  <Layout>
-                    <Usuarios />
-                  </Layout>
+                  <AdminRoute>
+                    <Layout>
+                      <Usuarios />
+                    </Layout>
+                  </AdminRoute>
                 </PrivateRoute>
               } />
               <Route path="/perfil" element={

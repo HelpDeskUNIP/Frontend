@@ -1,93 +1,106 @@
+using AutoMapper;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using TicketSystem.API.Data;
+using TicketSystem.API.Models.DTOs;
 using TicketSystem.API.Models.Entities;
 using TicketSystem.API.Models.Enums;
-using TicketSystem.API.Models.DTOs;
-using TicketSystem.API.Services.Interfaces;
-using AutoMapper;
 
 namespace TicketSystem.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
     [Produces("application/json")]
+    [Authorize(Roles = "Admin")]
     public class UsersController : ControllerBase
     {
-        private readonly ApplicationDbContext _context;
-        private readonly IAuthService _authService;
+        private readonly ApplicationDbContext _db;
         private readonly IMapper _mapper;
 
-        public UsersController(ApplicationDbContext context, IAuthService authService, IMapper mapper)
+        public UsersController(ApplicationDbContext db, IMapper mapper)
         {
-            _context = context;
-            _authService = authService;
+            _db = db;
             _mapper = mapper;
         }
 
-        // Admin pode criar agentes e administradores
+        // GET: /api/users
+        [HttpGet]
+        public async Task<IActionResult> GetAll([FromQuery] int page = 1, [FromQuery] int pageSize = 50, [FromQuery] string? q = null)
+        {
+            page = Math.Max(1, page);
+            pageSize = Math.Clamp(pageSize, 1, 200);
+            var query = _db.Users.AsNoTracking().OrderBy(u => u.Id).AsQueryable();
+            if (!string.IsNullOrWhiteSpace(q))
+            {
+                var term = q.Trim();
+                query = query.Where(u => u.Email.Contains(term) || (u.FirstName + " " + u.LastName).Contains(term));
+            }
+
+            var total = await query.CountAsync();
+            var items = await query.Skip((page - 1) * pageSize).Take(pageSize).ToListAsync();
+            var dtos = items.Select(u => _mapper.Map<UserDto>(u)).ToList();
+            return Ok(new { Message = "Usuários obtidos", Data = new { Total = total, Page = page, PageSize = pageSize, Items = dtos } });
+        }
+
+        // POST: /api/users
         [HttpPost]
-        [Authorize(Roles = "Admin")]
-        public async Task<IActionResult> CreateUser([FromBody] CreateUserDto dto)
+        public async Task<IActionResult> Create([FromBody] CreateUserDto dto)
         {
             if (!ModelState.IsValid) return BadRequest(ModelState);
-
-            // Verificar email
-            if (_context.Set<User>().Any(u => u.Email == dto.Email))
-                return BadRequest(new { Message = "Email já em uso" });
-
-            User user;
-            if (dto.UserType == UserType.Agent)
+            if (await _db.Users.AnyAsync(u => u.Email == dto.Email))
             {
-                user = new Agent
-                {
-                    FirstName = dto.FirstName,
-                    LastName = dto.LastName,
-                    Email = dto.Email,
-                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
-                    IsActive = true
-                };
-            }
-            else if (dto.UserType == UserType.Admin)
-            {
-                user = new Admin
-                {
-                    FirstName = dto.FirstName,
-                    LastName = dto.LastName,
-                    Email = dto.Email,
-                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
-                    IsActive = true
-                };
-            }
-            else
-            {
-                return BadRequest(new { Message = "Tipo de usuário inválido para esse endpoint" });
+                return Conflict(new { Message = "Email já cadastrado" });
             }
 
-            _context.Set<User>().Add(user);
-            await _context.SaveChangesAsync();
+            User entity;
+            switch (dto.UserType)
+            {
+                case UserType.Agent:
+                    entity = new Agent
+                    {
+                        FirstName = dto.FirstName,
+                        LastName = dto.LastName,
+                        Email = dto.Email,
+                        PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
+                        UserType = UserType.Agent,
+                        IsActive = dto.IsActive,
+                        Specialization = dto.Specialization ?? string.Empty,
+                        Level = dto.Level ?? 1,
+                        IsAvailable = dto.IsAvailable ?? true
+                    };
+                    break;
+                case UserType.Admin:
+                    entity = new Admin
+                    {
+                        FirstName = dto.FirstName,
+                        LastName = dto.LastName,
+                        Email = dto.Email,
+                        PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
+                        UserType = UserType.Admin,
+                        IsActive = dto.IsActive
+                    };
+                    break;
+                default:
+                    entity = new Customer
+                    {
+                        FirstName = dto.FirstName,
+                        LastName = dto.LastName,
+                        Email = dto.Email,
+                        PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password),
+                        UserType = UserType.Customer,
+                        IsActive = dto.IsActive,
+                        Department = dto.Department
+                    };
+                    break;
+            }
 
-            var userDto = _mapper.Map<UserDto>(user);
-            return CreatedAtAction(nameof(GetUser), new { id = user.Id }, new { Message = "Usuário criado", Data = userDto });
+            _db.Users.Add(entity);
+            await _db.SaveChangesAsync();
+
+            var result = _mapper.Map<UserDto>(entity);
+            return CreatedAtAction(nameof(GetAll), new { id = entity.Id }, new { Message = "Usuário criado", Data = result });
         }
-
-        [HttpGet("{id:int}")]
-        [Authorize]
-        public async Task<IActionResult> GetUser(int id)
-        {
-            var user = await _authService.GetUserByIdAsync(id);
-            if (user == null) return NotFound(new { Message = "Usuário não encontrado" });
-            return Ok(new { Message = "Usuário obtido", Data = user });
-        }
-    }
-
-    // DTO local para criar usuário via admin
-    public class CreateUserDto
-    {
-        public string FirstName { get; set; } = string.Empty;
-        public string LastName { get; set; } = string.Empty;
-        public string Email { get; set; } = string.Empty;
-        public string Password { get; set; } = string.Empty;
-        public UserType UserType { get; set; } = UserType.Agent;
     }
 }
+

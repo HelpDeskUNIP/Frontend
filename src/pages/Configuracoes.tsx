@@ -9,12 +9,12 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  Settings, 
-  Bell, 
-  User, 
-  Shield, 
-  Palette, 
+import {
+  Settings,
+  Bell,
+  User,
+  Shield,
+  Palette,
   Database,
   Mail,
   Clock
@@ -31,17 +31,16 @@ export default function Configuracoes() {
   const [autoAssign, setAutoAssign] = useState(false);
   const [ticketTimeout, setTicketTimeout] = useState("24");
   const [defaultPriority, setDefaultPriority] = useState("media");
-  const [maxFileSize, setMaxFileSize] = useState("10");
   const [companyName, setCompanyName] = useState("Empresa Exemplo");
   const [companyEmail, setCompanyEmail] = useState("suporte@empresa.com");
 
   const handleSaveSettings = async () => {
     setLoading(true);
-    
+
     try {
       // Simular salvamento das configurações
       await new Promise(resolve => setTimeout(resolve, 1000));
-      
+
       toast({
         title: "Configurações salvas",
         description: "Suas configurações foram atualizadas com sucesso.",
@@ -126,7 +125,7 @@ export default function Configuracoes() {
                   />
                 </div>
               </div>
-              
+
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label className="text-base">Modo Escuro</Label>
@@ -167,9 +166,9 @@ export default function Configuracoes() {
                   onCheckedChange={setEmailNotifications}
                 />
               </div>
-              
+
               <Separator />
-              
+
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label className="text-base">Notificações Push</Label>
@@ -224,7 +223,7 @@ export default function Configuracoes() {
                     </SelectContent>
                   </Select>
                 </div>
-                
+
                 <div className="space-y-2">
                   <Label htmlFor="ticketTimeout">Tempo Limite de Ticket (horas)</Label>
                   <Input
@@ -236,20 +235,9 @@ export default function Configuracoes() {
                   />
                 </div>
               </div>
-              
-              <div className="space-y-2">
-                <Label htmlFor="maxFileSize">Tamanho Máximo de Arquivo (MB)</Label>
-                <Input
-                  id="maxFileSize"
-                  type="number"
-                  value={maxFileSize}
-                  onChange={(e) => setMaxFileSize(e.target.value)}
-                  placeholder="10"
-                />
-              </div>
-              
+
               <Separator />
-              
+
               <div className="flex items-center justify-between">
                 <div className="space-y-0.5">
                   <Label className="text-base">Atribuição Automática</Label>
@@ -300,7 +288,7 @@ export default function Configuracoes() {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="space-y-4">
                   <h3 className="text-lg font-medium">Configurações de Acesso</h3>
                   <div className="space-y-3">
@@ -353,7 +341,7 @@ export default function Configuracoes() {
                     </div>
                   </div>
                 </div>
-                
+
                 <div className="space-y-4">
                   <h3 className="text-lg font-medium">Sessões</h3>
                   <div className="space-y-3">

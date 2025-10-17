@@ -34,20 +34,34 @@ export default function EditarTicket() {
   const { id } = useParams();
   const navigate = useNavigate();
   const { toast } = useToast();
-  const { tickets, updateTicket } = useTickets();
+  const { tickets, updateTicket, upsertTicketDetail } = useTickets();
   const ticket = useMemo(() => tickets.find(t => t.id === id), [tickets, id]);
   const [status, setStatus] = useState<TicketStatus | undefined>(ticket?.status);
   const [loading, setLoading] = useState(false);
 
-  useEffect(() => {
-    // If ticket is not in store (refresh or deep link), fetch from API by number
-    if (!ticket && id) {
-      setLoading(true);
-      getTicketByNumber(id).then(fetched => {
-        if (fetched) updateTicket(id, fetched);
-      }).finally(() => setLoading(false));
+  function formatDatePtBr(iso: string) {
+    // Evita deslocamentos de timezone: usa apenas a parte de data (YYYY-MM-DD)
+    try {
+      const datePart = iso?.slice(0, 10); // YYYY-MM-DD
+      if (!datePart) return iso;
+      const [y, m, d] = datePart.split("-").map((v) => parseInt(v, 10));
+      if (!y || !m || !d) return iso;
+      const dd = String(d).padStart(2, "0");
+      const mm = String(m).padStart(2, "0");
+      return `${dd}/${mm}/${y}`;
+    } catch {
+      return iso;
     }
-  }, [ticket, id, updateTicket]);
+  }
+
+  useEffect(() => {
+    // Buscar detalhes completos se não estiver em cache ou se descrição estiver vazia
+    if (id && (!ticket || !ticket.hasFullDetail || !ticket.descricao?.trim())) {
+      setLoading(true);
+      getTicketByNumber(id, upsertTicketDetail)
+        .finally(() => setLoading(false));
+    }
+  }, [ticket, id, upsertTicketDetail]);
 
   const handleSalvar = async () => {
     if (!id || !status) return;
@@ -206,14 +220,14 @@ export default function EditarTicket() {
                 <div>
                   <Label className="text-sm font-medium">Data de Criação</Label>
                   <p className="text-sm text-muted-foreground">
-                    {new Date(ticket.dataCriacao).toLocaleDateString('pt-BR')}
+                    {formatDatePtBr(ticket.dataCriacao)}
                   </p>
                 </div>
 
                 <div>
                   <Label className="text-sm font-medium">Última Atualização</Label>
                   <p className="text-sm text-muted-foreground">
-                    {new Date(ticket.dataAtualizacao).toLocaleDateString('pt-BR')}
+                    {formatDatePtBr(ticket.dataAtualizacao)}
                   </p>
                 </div>
               </CardContent>

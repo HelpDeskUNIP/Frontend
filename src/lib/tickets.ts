@@ -1,3 +1,4 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
 import { api } from "./api";
 import type { Ticket as StoreTicket, TicketPrioridade, TicketStatus } from "@/hooks/use-tickets";
 
@@ -147,15 +148,32 @@ export async function getTicketByNumber(number: string, persist?: (ticket: Store
     // Nova rota otimizada: /tickets/by-number/{number}
     try {
         const detail = await api.get<{ message?: string; data: ApiTicketDetail }>(`/tickets/by-number/${number}`);
-        const d = detail.data.data;
-        const mapped = mapApiTicketToStore(d as ApiTicketSummary); // Detail herda de summary
+        const d: ApiTicketDetail = detail.data.data as ApiTicketDetail;
+        const summaryFromDetail: ApiTicketSummary = {
+            id: d.id,
+            number: d.number,
+            subject: d.subject,
+            status: d.status,
+            priority: d.priority,
+            department: d.department,
+            customer: d.customer,
+            assignedAgent: d.assignedAgent,
+            createdAt: d.createdAt,
+            updatedAt: d.updatedAt,
+            isOverdue: !!d.isOverdue,
+            slaHours: d.slaHours ?? undefined,
+            messageCount: d.messageCount ?? 0,
+        };
+        const mapped = mapApiTicketToStore(summaryFromDetail);
         mapped.descricao = d.description ?? "";
-        (mapped as any).hasFullDetail = true;
+        mapped.hasFullDetail = true;
         persist?.(mapped);
         return mapped;
-    } catch (err: any) {
+    } catch (e: unknown) {
         // Se não encontrado, não faz sentido tentar fallback; apenas retorna null
-        if (err?.response?.status === 404) {
+        type HttpError = { response?: { status?: number } };
+        const status = (e as HttpError)?.response?.status;
+        if (status === 404) {
             return null;
         }
         // Em outros erros (ex: backend antigo sem rota), faz fallback para busca
@@ -166,10 +184,25 @@ export async function getTicketByNumber(number: string, persist?: (ticket: Store
             const item = list.data.data.items?.[0];
             if (!item || item.number !== number) return null;
             const legacyDetail = await api.get<{ message?: string; data: ApiTicketDetail }>(`/tickets/${item.id}`);
-            const d = legacyDetail.data.data;
-            const mapped = mapApiTicketToStore(d as ApiTicketSummary);
+            const d: ApiTicketDetail = legacyDetail.data.data as ApiTicketDetail;
+            const summaryFromDetail: ApiTicketSummary = {
+                id: d.id,
+                number: d.number,
+                subject: d.subject,
+                status: d.status,
+                priority: d.priority,
+                department: d.department,
+                customer: d.customer,
+                assignedAgent: d.assignedAgent,
+                createdAt: d.createdAt,
+                updatedAt: d.updatedAt,
+                isOverdue: !!d.isOverdue,
+                slaHours: d.slaHours ?? undefined,
+                messageCount: d.messageCount ?? 0,
+            };
+            const mapped = mapApiTicketToStore(summaryFromDetail);
             mapped.descricao = d.description ?? "";
-            (mapped as any).hasFullDetail = true;
+            mapped.hasFullDetail = true;
             persist?.(mapped);
             return mapped;
         } catch {
